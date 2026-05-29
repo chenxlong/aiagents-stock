@@ -1,3 +1,14 @@
+# chenxl add start 日志配置
+import os
+import logging
+
+# 日志配置必须放在所有其他模块导入之前，确保最先执行
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# logger = logging.getLogger(os.path.basename(__file__).replace(".py", ""))
+logger = logging.getLogger(__name__)
+# chenxl add end
+
+from requests import session
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
@@ -6,7 +17,6 @@ import json
 from datetime import datetime
 import time
 import base64
-import os
 import config
 
 from stock_data import StockDataFetcher
@@ -23,13 +33,44 @@ from longhubang_ui import display_longhubang
 from smart_monitor_ui import smart_monitor_ui
 from news_flow_ui import display_news_flow_monitor
 
-# 页面配置
+# 页面配置 - 必须放在所有其他 Streamlit 命令之前
 st.set_page_config(
     page_title="复合多AI智能体股票团队分析系统",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# chenxl add start 
+# 页面重新加载计数
+def test_update_reload_count():
+    # 初始化计数器：只有第一次运行时才会执行（刷新）
+    if "reload_count" not in st.session_state:
+        st.session_state.reload_count = 0
+
+    # 每次脚本重跑（点击/输入），计数 +1
+    st.session_state.reload_count += 1
+    logger.info(f"✅ 页面重新加载！第{st.session_state.reload_count}次")
+
+test_update_reload_count()
+# chenxl add end
+
+# # chenxl add start 
+# # 页面刷新加载计数 使用 URL 参数来持久化计数器（解决刷新页面重置的问题）
+# def update_refresh_count():
+#     # 使用 URL 参数来持久化计数器（解决刷新页面重置的问题）
+#     query_params = st.query_params
+#     refresh_count = query_params.get("refresh_count", "0")
+
+#     try:
+#         current_count = int(refresh_count) + 1
+#     except ValueError:
+#         current_count = 1
+
+#     # 更新 URL 参数（不会触发页面刷新）
+#     query_params["refresh_count"] = str(current_count)
+#     logger.info(f"✅ 页面重新加载！第{current_count}次")
+# # chenxl add end
 
 # 在侧边栏显示当前模型信息（统一使用.env配置）
 def show_current_model_info():
@@ -423,7 +464,7 @@ def main():
         # API密钥检查
         api_key_status = check_api_key()
         if api_key_status:
-            st.success("✅ API已连接")
+            st.success("✅ API已配置")
         else:
             st.error("❌ API未配置")
             st.caption("请在.env中配置API密钥")

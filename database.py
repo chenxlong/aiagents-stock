@@ -18,19 +18,19 @@ class StockAnalysisDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # 创建分析记录表
+        # 创建分析记录表 - 存储AI智能体股票分析记录
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS analysis_records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                symbol TEXT NOT NULL,
-                stock_name TEXT,
-                analysis_date TEXT NOT NULL,
-                period TEXT NOT NULL,
-                stock_info TEXT,
-                agents_results TEXT,
-                discussion_result TEXT,
-                final_decision TEXT,
-                created_at TEXT NOT NULL
+                id INTEGER PRIMARY KEY AUTOINCREMENT,     -- 主键ID，自增
+                symbol TEXT NOT NULL,                     -- 股票代码（如600519）
+                stock_name TEXT,                          -- 股票名称（如贵州茅台）
+                analysis_date TEXT NOT NULL,              -- 分析日期时间
+                period TEXT NOT NULL,                     -- 数据周期（如1y/6mo/3mo）
+                stock_info TEXT,                          -- 股票基本信息，JSON格式
+                agents_results TEXT,                      -- 各分析师结果，JSON格式
+                discussion_result TEXT,                   -- 团队讨论结果，JSON格式
+                final_decision TEXT,                      -- 最终决策，JSON格式
+                created_at TEXT NOT NULL                  -- 记录创建时间
             )
         ''')
         

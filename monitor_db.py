@@ -20,25 +20,25 @@ class StockMonitorDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # 创建监测股票表
+        # 创建监测股票表 - 存储用户关注的股票及其监测配置
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS monitored_stocks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                symbol TEXT NOT NULL,
-                name TEXT NOT NULL,
-                rating TEXT NOT NULL,
-                entry_range TEXT NOT NULL,  -- JSON格式: {"min": 10.0, "max": 12.0}
-                take_profit REAL,
-                stop_loss REAL,
-                current_price REAL,
-                last_checked TIMESTAMP,
-                check_interval INTEGER DEFAULT 30,  -- 分钟
-                notification_enabled BOOLEAN DEFAULT TRUE,
-                trading_hours_only BOOLEAN DEFAULT TRUE,  -- 仅交易时段监控
-                quant_enabled BOOLEAN DEFAULT FALSE,  -- 量化交易开关
-                quant_config TEXT,  -- 量化配置JSON
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                id INTEGER PRIMARY KEY AUTOINCREMENT,     -- 主键ID，自增
+                symbol TEXT NOT NULL,                     -- 股票代码（如600519）
+                name TEXT NOT NULL,                       -- 股票名称（如贵州茅台）
+                rating TEXT NOT NULL,                     -- 评级（如买入/持有/卖出）
+                entry_range TEXT NOT NULL,                -- 进场区间，JSON格式: {"min": 10.0, "max": 12.0}
+                take_profit REAL,                         -- 止盈价格
+                stop_loss REAL,                           -- 止损价格
+                current_price REAL,                       -- 当前价格
+                last_checked TIMESTAMP,                   -- 上次检查时间
+                check_interval INTEGER DEFAULT 30,        -- 检查间隔（分钟）
+                notification_enabled BOOLEAN DEFAULT TRUE, -- 是否启用通知
+                trading_hours_only BOOLEAN DEFAULT TRUE,  -- 是否仅交易时段监控
+                quant_enabled BOOLEAN DEFAULT FALSE,      -- 是否启用量化交易
+                quant_config TEXT,                        -- 量化配置，JSON格式
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- 创建时间
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP   -- 更新时间
             )
         ''')
         
@@ -49,27 +49,27 @@ class StockMonitorDatabase:
             cursor.execute("ALTER TABLE monitored_stocks ADD COLUMN trading_hours_only BOOLEAN DEFAULT TRUE")
             print("✅ 已添加trading_hours_only字段")
         
-        # 创建价格历史表
+        # 创建价格历史表 - 记录股票价格变化历史
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS price_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                stock_id INTEGER,
-                price REAL NOT NULL,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (stock_id) REFERENCES monitored_stocks (id)
+                id INTEGER PRIMARY KEY AUTOINCREMENT,     -- 主键ID，自增
+                stock_id INTEGER,                         -- 关联的股票ID
+                price REAL NOT NULL,                      -- 记录的价格
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- 记录时间
+                FOREIGN KEY (stock_id) REFERENCES monitored_stocks (id)  -- 外键关联
             )
         ''')
         
-        # 创建提醒记录表
+        # 创建提醒记录表 - 存储触发的通知记录
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS notifications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                stock_id INTEGER,
-                type TEXT NOT NULL,  -- entry/take_profit/stop_loss
-                message TEXT NOT NULL,
-                triggered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                sent BOOLEAN DEFAULT FALSE,
-                FOREIGN KEY (stock_id) REFERENCES monitored_stocks (id)
+                id INTEGER PRIMARY KEY AUTOINCREMENT,     -- 主键ID，自增
+                stock_id INTEGER,                         -- 关联的股票ID
+                type TEXT NOT NULL,                       -- 通知类型: entry/take_profit/stop_loss/quant_trade
+                message TEXT NOT NULL,                    -- 通知消息内容
+                triggered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- 触发时间
+                sent BOOLEAN DEFAULT FALSE,               -- 是否已发送
+                FOREIGN KEY (stock_id) REFERENCES monitored_stocks (id)  -- 外键关联
             )
         ''')
         
