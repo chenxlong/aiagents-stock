@@ -50,7 +50,7 @@ class SmartMonitorTDXDataFetcher:
     def __init__(self, base_url: str = "http://192.168.1.222:8080"):
         self.base_url = base_url.rstrip('/')
         self.timeout = 10
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
     
     # 价格单位自动转换（厘→元）
     current_price = k_data.get('Close', 0) / 1000

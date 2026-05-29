@@ -11,11 +11,21 @@ import pywencai
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 import time
+import log_utils
+
+# 全局设置：让 pandas 完整打印所有行、所有列
+pd.set_option('display.max_rows', None)       # 显示所有行
+pd.set_option('display.max_columns', None)     # 显示所有列
+pd.set_option('display.width', None)           # 自动适应宽度
+pd.set_option('display.max_colwidth', None)    # 显示完整列内容（不省略）
+
 
 class MainForceStockSelector:
     """主力选股类"""
     
     def __init__(self):
+        self.logger = log_utils.get_logger(__name__)
+        self.logger.debug("初始化主力选股类")
         self.raw_data = None
         self.filtered_stocks = None
     
@@ -39,11 +49,11 @@ class MainForceStockSelector:
                 date_obj = datetime.now() - timedelta(days=days_ago)
                 start_date = f"{date_obj.year}年{date_obj.month}月{date_obj.day}日"
             
-            print(f"\n{'='*60}")
-            print(f"🔍 主力选股 - 数据获取中")
-            print(f"{'='*60}")
-            print(f"开始日期: {start_date}")
-            print(f"目标: 获取主力资金净流入排名前100名股票")
+            self.logger.info(f"\n{'='*60}")
+            self.logger.info(f"🔍 主力选股 - 数据获取中")
+            self.logger.info(f"{'='*60}")
+            self.logger.info(f"开始日期: {start_date}")
+            self.logger.info(f"目标: 获取主力资金净流入排名前100名股票")
             
             # 构建查询语句 - 使用多个备选方案，所有方案都要求计算区间涨跌幅
             queries = [
@@ -67,49 +77,50 @@ class MainForceStockSelector:
             
             # 尝试不同的查询方案
             for i, query in enumerate(queries, 1):
-                print(f"\n尝试方案 {i}/{len(queries)}...")
-                print(f"查询语句: {query[:100]}...")
+                self.logger.info(f"\n尝试方案 {i}/{len(queries)}...")
+                self.logger.info(f"查询语句: {query}")
                 
                 try:
                     result = pywencai.get(query=query, loop=True)
+                    self.logger.debug(f"问财原始结果: {result}")
                     
                     if result is None:
-                        print(f"  ⚠️ 方案{i}返回None，尝试下一个方案")
+                        self.logger.warning(f"  ⚠️ 方案{i}返回None，尝试下一个方案")
                         continue
                     
                     # 转换为DataFrame
                     df_result = self._convert_to_dataframe(result)
                     
                     if df_result is None or df_result.empty:
-                        print(f"  ⚠️ 方案{i}数据为空，尝试下一个方案")
+                        self.logger.warning(f"  ⚠️ 方案{i}数据为空，尝试下一个方案")
                         continue
                     
                     # 成功获取数据
-                    print(f"  ✅ 方案{i}成功！获取到 {len(df_result)} 只股票")
+                    self.logger.info(f"  ✅ 方案{i}成功！获取到 {len(df_result)} 只股票")
                     self.raw_data = df_result
                     
                     # 显示获取到的列名
-                    print(f"\n获取到的数据字段:")
+                    self.logger.info(f"\n获取到的数据字段:")
                     for col in df_result.columns[:15]:  # 只显示前15个字段
-                        print(f"  - {col}")
+                        self.logger.info(f"  - {col}")
                     if len(df_result.columns) > 15:
-                        print(f"  ... 还有 {len(df_result.columns) - 15} 个字段")
+                        self.logger.info(f"  ... 还有 {len(df_result.columns) - 15} 个字段")
                     
                     return True, df_result, f"成功获取{len(df_result)}只股票数据"
                 
                 except Exception as e:
-                    print(f"  ❌ 方案{i}失败: {str(e)}")
+                    self.logger.error(f"  ❌ 方案{i}失败: {str(e)}")
                     time.sleep(2)  # 失败后等待2秒再试
                     continue
             
             # 所有方案都失败
             error_msg = "所有查询方案都失败了，请检查网络或稍后重试"
-            print(f"\n❌ {error_msg}")
+            self.logger.error(f"\n❌ {error_msg}")
             return False, None, error_msg
         
         except Exception as e:
             error_msg = f"获取主力选股数据失败: {str(e)}"
-            print(f"\n❌ {error_msg}")
+            self.logger.error(f"\n❌ {error_msg}")
             return False, None, error_msg
     
     def _convert_to_dataframe(self, result) -> pd.DataFrame:
@@ -132,7 +143,7 @@ class MainForceStockSelector:
             else:
                 return None
         except Exception as e:
-            print(f"  转换DataFrame失败: {e}")
+            self.logger.error(f"  转换DataFrame失败: {e}")
             return None
     
     def filter_stocks(self, df: pd.DataFrame, 
@@ -154,12 +165,12 @@ class MainForceStockSelector:
         if df is None or df.empty:
             return df
         
-        print(f"\n{'='*60}")
-        print(f"🔍 智能筛选中...")
-        print(f"{'='*60}")
-        print(f"筛选条件:")
-        print(f"  - 区间涨跌幅 < {max_range_change}%")
-        print(f"  - 市值范围: {min_market_cap}-{max_market_cap}亿")
+        self.logger.info(f"\n{'='*60}")
+        self.logger.info(f"🔍 智能筛选中...")
+        self.logger.info(f"{'='*60}")
+        self.logger.info(f"筛选条件:")
+        self.logger.info(f"  - 区间涨跌幅 < {max_range_change}%")
+        self.logger.info(f"  - 市值范围: {min_market_cap}-{max_market_cap}亿")
         
         original_count = len(df)
         filtered_df = df.copy()
@@ -188,7 +199,7 @@ class MainForceStockSelector:
                 break
         
         if interval_pct_col:
-            print(f"\n使用字段: {interval_pct_col}")
+            self.logger.info(f"\n使用字段: {interval_pct_col}")
             
             # 转换为数值并筛选
             filtered_df[interval_pct_col] = pd.to_numeric(filtered_df[interval_pct_col], errors='coerce')
@@ -197,16 +208,16 @@ class MainForceStockSelector:
                 (filtered_df[interval_pct_col].notna()) & 
                 (filtered_df[interval_pct_col] < max_range_change)
             ]
-            print(f"  区间涨跌幅筛选: {before} -> {len(filtered_df)} 只")
+            self.logger.info(f"  区间涨跌幅筛选: {before} -> {len(filtered_df)} 只")
         else:
-            print(f"  ⚠️ 未找到区间涨跌幅字段，跳过涨跌幅筛选")
-            print(f"  可用字段: {list(df.columns[:10])}")
+            self.logger.warning(f"  ⚠️ 未找到区间涨跌幅字段，跳过涨跌幅筛选")
+            self.logger.warning(f"  可用字段: {list(df.columns[:10])}")
         
         # 2. 筛选市值
         market_cap_cols = [col for col in df.columns if '总市值' in col or '市值' in col]
         if market_cap_cols:
             col_name = market_cap_cols[0]
-            print(f"\n使用字段: {col_name}")
+            self.logger.info(f"\n使用字段: {col_name}")
             
             # 转换为数值（单位可能是亿或元）
             filtered_df[col_name] = pd.to_numeric(filtered_df[col_name], errors='coerce')
@@ -214,7 +225,7 @@ class MainForceStockSelector:
             # 判断单位（如果值很大，可能是元）
             max_val = filtered_df[col_name].max()
             if max_val > 100000:  # 大于10万，认为是元
-                print(f"  检测到单位为元，转换为亿")
+                self.logger.info(f"  检测到单位为元，转换为亿")
                 filtered_df[col_name] = filtered_df[col_name] / 100000000
             
             before = len(filtered_df)
@@ -223,16 +234,16 @@ class MainForceStockSelector:
                 (filtered_df[col_name] >= min_market_cap) &
                 (filtered_df[col_name] <= max_market_cap)
             ]
-            print(f"  市值筛选: {before} -> {len(filtered_df)} 只")
+            self.logger.info(f"  市值筛选: {before} -> {len(filtered_df)} 只")
         
         # 3. 去除ST股票（额外保险）
         if '股票简称' in filtered_df.columns:
             before = len(filtered_df)
             filtered_df = filtered_df[~filtered_df['股票简称'].str.contains('ST', na=False)]
             if before != len(filtered_df):
-                print(f"  ST股票过滤: {before} -> {len(filtered_df)} 只")
+                self.logger.info(f"  ST股票过滤: {before} -> {len(filtered_df)} 只")
         
-        print(f"\n筛选完成: {original_count} -> {len(filtered_df)} 只股票")
+        self.logger.info(f"\n筛选完成: {original_count} -> {len(filtered_df)} 只股票")
         
         self.filtered_stocks = filtered_df
         return filtered_df
@@ -267,17 +278,17 @@ class MainForceStockSelector:
                 break
         
         if main_fund_col:
-            print(f"\n使用字段排序: {main_fund_col}")
+            self.logger.info(f"\n使用字段排序: {main_fund_col}")
             
             # 转换为数值并排序
             df[main_fund_col] = pd.to_numeric(df[main_fund_col], errors='coerce')
             top_df = df.nlargest(top_n, main_fund_col)
             
-            print(f"获取主力资金净流入前 {len(top_df)} 名")
+            self.logger.info(f"获取主力资金净流入前 {len(top_df)} 名")
             return top_df
         else:
             # 如果没有主力资金列，直接返回前N条
-            print(f"未找到主力资金列，返回前{top_n}条数据")
+            self.logger.info(f"未找到主力资金列，返回前{top_n}条数据")
             return df.head(top_n)
     
     def format_stock_list_for_analysis(self, df: pd.DataFrame) -> List[Dict]:
@@ -353,11 +364,11 @@ class MainForceStockSelector:
     
     def print_stock_summary(self, stock_list: List[Dict]):
         """打印股票摘要信息"""
-        print(f"\n{'='*80}")
-        print(f"📊 候选股票列表 ({len(stock_list)}只)")
-        print(f"{'='*80}")
-        print(f"{'序号':<4} {'代码':<8} {'名称':<12} {'行业':<15} {'主力资金':<12} {'涨跌幅':<8}")
-        print(f"{'-'*80}")
+        self.logger.info(f"\n{'='*80}")
+        self.logger.info(f"📊 候选股票列表 ({len(stock_list)}只)")
+        self.logger.info(f"{'='*80}")
+        self.logger.info(f"{'序号':<4} {'代码':<8} {'名称':<12} {'行业':<15} {'主力资金':<12} {'涨跌幅':<8}")
+        self.logger.info(f"{'-'*80}")
         
         for i, stock in enumerate(stock_list, 1):
             symbol = stock['symbol']
@@ -381,9 +392,9 @@ class MainForceStockSelector:
             else:
                 change_str = 'N/A'
             
-            print(f"{i:<4} {symbol:<8} {name:<12} {industry:<15} {main_fund_str:<12} {change_str:<8}")
+            self.logger.info(f"{i:<4} {symbol:<8} {name:<12} {industry:<15} {main_fund_str:<12} {change_str:<8}")
         
-        print(f"{'='*80}\n")
+        self.logger.info(f"{'='*80}\n")
 
 # 全局实例
 main_force_selector = MainForceStockSelector()

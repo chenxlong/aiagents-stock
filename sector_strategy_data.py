@@ -8,7 +8,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import warnings
 import time
-import logging
+import log_utils
 import os
 from dotenv import load_dotenv
 from sector_strategy_db import SectorStrategyDatabase
@@ -30,7 +30,7 @@ class SectorStrategyDataFetcher:
         
         # 初始化数据库和日志
         self.database = SectorStrategyDatabase()
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         
         # 配置日志
         if not self.logger.handlers:

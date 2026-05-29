@@ -4,7 +4,7 @@
 """
 
 import sqlite3
-import logging
+import log_utils
 from typing import Dict, List, Optional
 from datetime import datetime
 import json
@@ -21,7 +21,7 @@ class SmartMonitorDB:
             db_file: 数据库文件路径
         """
         self.db_file = db_file
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         self._init_database()
     
     def _init_database(self):

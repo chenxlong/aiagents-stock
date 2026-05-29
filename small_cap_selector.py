@@ -5,7 +5,7 @@
 使用pywencai进行股票筛选
 """
 
-import logging
+import log_utils
 from typing import Tuple, Optional
 import pandas as pd
 
@@ -14,7 +14,7 @@ class SmallCapSelector:
     """小市值策略选股器"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
     
     def get_small_cap_stocks(self, top_n: int = 5) -> Tuple[bool, Optional[pd.DataFrame], str]:
         """

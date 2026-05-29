@@ -5,6 +5,7 @@
 /test_pe_pb.py
 /venv
 /.venv
+/logs
 /__pycache__
 # 环境变量文件
 .env

@@ -3,7 +3,7 @@
 适配A股T+1交易规则的AI决策系统
 """
 
-import logging
+import log_utils
 from typing import Dict, List, Optional
 from datetime import datetime, time
 import pytz
@@ -26,7 +26,7 @@ class SmartMonitorDeepSeek:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
 
     def is_trading_time(self) -> bool:
         """

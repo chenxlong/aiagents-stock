@@ -7,7 +7,7 @@ import sqlite3
 from datetime import datetime
 import json
 import pandas as pd
-import logging
+import log_utils
 
 
 class SectorStrategyDatabase:
@@ -22,7 +22,7 @@ class SectorStrategyDatabase:
         """
         self.db_path = db_path
         # 初始化日志
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         if not self.logger.handlers:
             logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
         self.init_database()

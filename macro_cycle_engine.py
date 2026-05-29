@@ -8,7 +8,7 @@ from macro_cycle_data import MacroCycleDataFetcher
 from typing import Dict, Any
 import time
 import json
-import logging
+import log_utils
 import config
 
 
@@ -19,7 +19,7 @@ class MacroCycleEngine:
         self.model = model or config.DEFAULT_MODEL_NAME
         self.agents = MacroCycleAgents(model=self.model)
         self.data_fetcher = MacroCycleDataFetcher()
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         if not self.logger.handlers:
             logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
         print(f"[宏观周期引擎] 初始化完成 (模型: {self.model})")

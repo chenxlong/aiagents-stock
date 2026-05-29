@@ -2,13 +2,13 @@
 新闻流量情绪分析模块
 实现情绪指数、情绪分类、流量阶段判断、情绪动量计算
 """
-import logging
+import log_utils
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import statistics
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = log_utils.get_logger(__name__)
 
 
 class SentimentAnalyzer:

@@ -4,13 +4,13 @@
 包含：板块影响分析、股票推荐、风险评估、投资建议
 """
 import json
-import logging
+import log_utils
 import time
 from datetime import datetime
 from typing import Dict, List, Optional
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = log_utils.get_logger(__name__)
 
 
 class NewsFlowAgents:

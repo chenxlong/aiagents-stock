@@ -4,7 +4,7 @@
 支持降级到tushare作为备用数据源
 """
 
-import logging
+import log_utils
 import os
 import akshare as ak
 import pandas as pd
@@ -23,7 +23,7 @@ class SmartMonitorDataFetcher:
             use_tdx: 是否使用TDX数据源（可选，从配置读取）
             tdx_base_url: TDX接口地址（可选，从配置读取）
         """
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         
         # TDX数据源配置
         if use_tdx is None:

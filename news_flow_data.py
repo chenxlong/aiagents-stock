@@ -4,14 +4,14 @@
 支持22个平台，包含排名、K值计算等功能
 """
 import requests
-import logging
+import log_utils
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import time
 from collections import Counter
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = log_utils.get_logger(__name__)
 
 
 class NewsFlowDataFetcher:

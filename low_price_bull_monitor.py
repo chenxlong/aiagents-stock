@@ -9,7 +9,7 @@ import sqlite3
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
-import logging
+import log_utils
 import os
 
 
@@ -23,7 +23,7 @@ class LowPriceBullMonitor:
         Args:
             db_path: 数据库文件路径
         """
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         self.db_path = db_path
         self._init_database()
     

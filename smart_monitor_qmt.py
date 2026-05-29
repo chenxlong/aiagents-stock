@@ -4,7 +4,7 @@
 使用主程序的配置管理系统
 """
 
-import logging
+import log_utils
 import os
 from typing import Dict, List, Optional
 from datetime import datetime
@@ -20,7 +20,7 @@ class SmartMonitorQMT:
         Args:
             mini_qmt_path: miniQMT安装路径
         """
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         self.xt_trader = None
         self.account = None
         self.connected = False
@@ -502,7 +502,7 @@ class SmartMonitorQMTSimulator:
     """模拟交易（用于测试）"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         self.connected = True
         self.cash = 100000  # 模拟资金10万
         self.positions = {}  # 模拟持仓

@@ -1,11 +1,9 @@
 # chenxl add start 日志配置
-import os
-import logging
+import log_utils
 
 # 日志配置必须放在所有其他模块导入之前，确保最先执行
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# logger = logging.getLogger(os.path.basename(__file__).replace(".py", ""))
-logger = logging.getLogger(__name__)
+log_utils.setup_root_logger()
+logger = log_utils.get_logger(__name__)
 # chenxl add end
 
 from requests import session

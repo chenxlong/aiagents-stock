@@ -10,7 +10,7 @@ from longhubang_scoring import LonghubangScoring
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 import time
-import logging
+import log_utils
 import config
 
 
@@ -30,7 +30,7 @@ class LonghubangEngine:
         self.agents = LonghubangAgents(model=model)
         self.scoring = LonghubangScoring()
         # 初始化日志
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         if not self.logger.handlers:
             logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
         self.logger.info("[智瞰龙虎] 分析引擎初始化完成")

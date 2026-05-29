@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import json
-import logging
+import log_utils
 import re
 import time
 import urllib3
@@ -281,7 +281,7 @@ class MacroAnalysisDataFetcher:
     }
 
     def __init__(self) -> None:
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         if not self.logger.handlers:
             logging.basicConfig(
                 level=logging.INFO,

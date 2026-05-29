@@ -5,12 +5,12 @@
 import schedule
 import threading
 import time
-import logging
+import log_utils
 from datetime import datetime
 from typing import Dict, List, Optional, Callable
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = log_utils.get_logger(__name__)
 
 
 class NewsFlowScheduler:

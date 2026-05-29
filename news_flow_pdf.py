@@ -18,9 +18,9 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-import logging
+import log_utils
 
-logger = logging.getLogger(__name__)
+logger = log_utils.get_logger(__name__)
 
 
 class NewsFlowPDFGenerator:

@@ -5,13 +5,13 @@
 """
 import sqlite3
 import json
-import logging
+import log_utils
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from collections import Counter
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = log_utils.get_logger(__name__)
 
 
 class NewsFlowDatabase:

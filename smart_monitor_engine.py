@@ -3,7 +3,7 @@
 整合DeepSeek AI决策、数据获取、交易执行、通知等功能
 """
 
-import logging
+import log_utils
 import time
 from typing import Dict, List, Optional
 from datetime import datetime
@@ -30,7 +30,7 @@ class SmartMonitorEngine:
             qmt_account_id: miniQMT账户ID（可选，从配置读取）
             use_simulator: 是否使用模拟交易（可选，从配置读取）
         """
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         
         # 从配置管理器读取配置
         config = config_manager.read_env()

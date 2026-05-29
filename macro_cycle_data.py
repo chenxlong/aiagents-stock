@@ -9,12 +9,12 @@ import pandas as pd
 from datetime import datetime, timedelta
 import warnings
 import time
-import logging
+import log_utils
 import traceback
 
 warnings.filterwarnings('ignore')
 
-logger = logging.getLogger(__name__)
+logger = log_utils.get_logger(__name__)
 
 
 class MacroCycleDataFetcher:

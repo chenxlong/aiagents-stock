@@ -3,12 +3,12 @@
 核心公式：接盘总量 = 流量 × 转化率 × 客单价
 实现流量为王理念的量化分析
 """
-import logging
+import log_utils
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = log_utils.get_logger(__name__)
 
 
 class NewsFlowModel:

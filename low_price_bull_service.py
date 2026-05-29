@@ -7,7 +7,7 @@
 
 import time
 import threading
-import logging
+import log_utils
 from datetime import datetime
 from typing import Optional
 import os
@@ -20,7 +20,7 @@ class LowPriceBullService:
     """低价擒牛策略监控服务"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         self.running = False
         self.thread: Optional[threading.Thread] = None
         self.scan_interval = 60  # 默认扫描间隔（秒）

@@ -8,7 +8,7 @@ from plotly.subplots import make_subplots
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
-import logging
+import log_utils
 
 
 class SmartMonitorKline:
@@ -16,7 +16,7 @@ class SmartMonitorKline:
     
     def __init__(self):
         """初始化K线图"""
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
     
     def create_kline_with_decisions(
         self,

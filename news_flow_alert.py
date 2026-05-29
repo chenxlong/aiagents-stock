@@ -2,12 +2,12 @@
 新闻流量预警系统模块
 实现6种预警类型和通知推送
 """
-import logging
+import log_utils
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = log_utils.get_logger(__name__)
 
 
 class NewsFlowAlertSystem:

@@ -3,7 +3,7 @@
 使用TDX股票数据API接口获取实时行情和技术指标
 """
 
-import logging
+import log_utils
 import requests
 import pandas as pd
 from typing import Dict, Optional
@@ -20,7 +20,7 @@ class SmartMonitorTDXDataFetcher:
         Args:
             base_url: TDX API基础地址
         """
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         self.base_url = base_url.rstrip('/')
         self.timeout = 10  # 请求超时时间（秒）
         

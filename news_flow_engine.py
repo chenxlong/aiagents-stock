@@ -3,13 +3,13 @@
 基于"流量为王"理念的短线炒股指导系统
 整合数据获取、流量模型、情绪分析、AI分析、预警系统
 """
-import logging
+import log_utils
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = log_utils.get_logger(__name__)
 
 
 class NewsFlowEngine:

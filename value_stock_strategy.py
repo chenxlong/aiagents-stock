@@ -9,7 +9,7 @@ import pandas as pd
 import akshare as ak
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
-import logging
+import log_utils
 
 
 class ValueStockStrategy:
@@ -22,7 +22,7 @@ class ValueStockStrategy:
         Args:
             initial_capital: 初始资金（默认100万）
         """
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
 
         # 策略参数
         self.initial_capital = initial_capital

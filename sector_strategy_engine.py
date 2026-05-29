@@ -10,7 +10,7 @@ from typing import Dict, Any
 import time
 import json
 import pandas as pd
-import logging
+import log_utils
 import config
 
 
@@ -22,7 +22,7 @@ class SectorStrategyEngine:
         self.agents = SectorStrategyAgents(model=self.model)
         self.deepseek_client = DeepSeekClient(model=self.model)
         self.database = SectorStrategyDatabase()
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         if not self.logger.handlers:
             logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
         print(f"[智策引擎] 初始化完成 (模型: {self.model})")

@@ -6,7 +6,7 @@
 """
 
 import sqlite3
-import logging
+import log_utils
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional
 import os
@@ -23,7 +23,7 @@ class ProfitGrowthMonitor:
             db_path: 数据库文件路径
         """
         self.db_path = db_path
-        self.logger = logging.getLogger(__name__)
+        self.logger = log_utils.get_logger(__name__)
         self._init_database()
     
     def _init_database(self):

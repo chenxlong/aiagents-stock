@@ -6,7 +6,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import logging
+import log_utils
 import os
 from typing import Dict
 from dotenv import load_dotenv

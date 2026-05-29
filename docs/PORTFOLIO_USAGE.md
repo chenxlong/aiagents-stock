@@ -363,7 +363,7 @@ cp portfolio_stocks.db portfolio_stocks_backup_$(date +%Y%m%d).db
 
 ```python
 # portfolio_scheduler.py 顶部添加
-import logging
+import log_utils
 logging.basicConfig(level=logging.DEBUG)
 ```
 
