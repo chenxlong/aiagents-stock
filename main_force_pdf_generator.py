@@ -84,23 +84,64 @@ def generate_main_force_markdown_report(analyzer, result):
     final_recommendations = result.get('final_recommendations', [])
     if final_recommendations:
         for rec in final_recommendations:
+            recommendation_reason = rec.get('reason', [])
+            markdown_reason = "- 暂无"
+            for reason in recommendation_reason:
+                markdown_reason += f"- {reason}\n"
+
             markdown_content += f"""
 ### 【第{rec['rank']}名】{rec['symbol']} - {rec['name']}
 
 **推荐理由**:
-{rec.get('reason', '暂无')}
+{markdown_reason}
 
 **关键指标**:
 """
             if 'stock_data' in rec:
                 stock_data = rec['stock_data']
+                # 所属行业
+                industry_value = 'N/A'
+                industry_keys = [k for k in stock_data.keys() if '行业' in k]
+                if industry_keys:
+                    industry_value = stock_data.get(industry_keys[0], 'N/A')
+
+                # 总市值
+                cap_value = 'N/A'
+                cap_keys = [k for k in stock_data.keys() if '总市值' in k]
+                if cap_keys:
+                    cap_value = stock_data.get(cap_keys[0], 'N/A')
+
+                # 主力资金流向
+                main_fund_value = 'N/A'
+                main_fund_keys = [k for k in stock_data.keys() if '主力资金流向' in k]
+                if main_fund_keys:
+                    main_fund_value = stock_data.get(main_fund_keys[0], 'N/A')
+
+                # 区间涨跌幅
+                range_change_value = 'N/A'
+                range_change_keys = [k for k in stock_data.keys() if '区间涨跌幅' in k]
+                if range_change_keys:
+                    range_change_value = stock_data.get(range_change_keys[0], 'N/A')
+
+                # 市盈率
+                pe_ratio_value = 'N/A'
+                pe_ratio_keys = [k for k in stock_data.keys() if '市盈率' in k]
+                if pe_ratio_keys:
+                    pe_ratio_value = stock_data.get(pe_ratio_keys[0], 'N/A')
+                
+                # 市净率
+                pb_ratio_value = 'N/A'
+                pb_ratio_keys = [k for k in stock_data.keys() if '市净率' in k]
+                if pb_ratio_keys:
+                    pb_ratio_value = stock_data.get(pb_ratio_keys[0], 'N/A')
+
                 markdown_content += f"""
-- **所属行业**: {stock_data.get('industry', 'N/A')}
-- **市值**: {stock_data.get('market_cap', 'N/A')}
-- **主力资金流向**: {stock_data.get('main_fund_inflow', 'N/A')}
-- **区间涨跌幅**: {stock_data.get('range_change', 'N/A')}%
-- **市盈率**: {stock_data.get('pe_ratio', 'N/A')}
-- **市净率**: {stock_data.get('pb_ratio', 'N/A')}
+- **所属行业**: {industry_value}
+- **市值**: {cap_value}
+- **主力资金流向**: {main_fund_value}
+- **区间涨跌幅**: {range_change_value}%
+- **市盈率**: {pe_ratio_value}
+- **市净率**: {pb_ratio_value}
 
 """
             

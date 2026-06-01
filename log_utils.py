@@ -4,6 +4,13 @@ import json
 import logging
 import logging.config
 from logging.handlers import RotatingFileHandler
+import pandas as pd
+
+# 全局设置：让 pandas 完整打印所有行、所有列
+pd.set_option('display.max_rows', None)       # 显示所有行
+pd.set_option('display.max_columns', None)     # 显示所有列
+pd.set_option('display.width', None)           # 自动适应宽度
+pd.set_option('display.max_colwidth', None)    # 显示完整列内容（不省略）
 
 
 # 全局日志配置标志，防止重复配置
@@ -71,6 +78,22 @@ def get_logger(name=None):
         logger 实例
     """
     return logging.getLogger(name)
+
+
+# Pandas数据转CSV文件
+def pandas_to_csv(df: pd.DataFrame, file_path: str = 'logs/data_frame.csv', print_index: bool = False):
+    """
+    将 pandas DataFrame 导出为 CSV 文件
+    
+    Args:
+        df: 输入的 pandas DataFrame
+        file_path: 输出的 CSV 文件路径
+        index: 是否包含索引列，默认 False
+    
+    Returns:
+        None
+    """
+    df.to_csv(file_path, index=print_index)
 
 
 def setup_logger_from_dict_config(config_file='logging_config.json'):

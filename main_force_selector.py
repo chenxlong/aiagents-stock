@@ -13,13 +13,6 @@ from typing import Dict, List, Tuple
 import time
 import log_utils
 
-# 全局设置：让 pandas 完整打印所有行、所有列
-pd.set_option('display.max_rows', None)       # 显示所有行
-pd.set_option('display.max_columns', None)     # 显示所有列
-pd.set_option('display.width', None)           # 自动适应宽度
-pd.set_option('display.max_colwidth', None)    # 显示完整列内容（不省略）
-
-
 class MainForceStockSelector:
     """主力选股类"""
     
@@ -64,7 +57,7 @@ class MainForceStockSelector:
                 f"现金流评分，资产质量评分，流动性评分，资本充足性评分",
                 
                 # 方案2: 简化查询
-                f"{start_date}以来主力资金净流入，并计算区间涨跌幅，市值{min_market_cap}-{max_market_cap}亿，非科创非st，"
+                f"{start_date}以来主力资金净流入排名，并计算区间涨跌幅，市值{min_market_cap}-{max_market_cap}亿，非科创非st，"
                 f"所属同花顺行业，总市值，净利润，营收，市盈率，市净率",
                 
                 # 方案3: 基础查询
@@ -83,6 +76,7 @@ class MainForceStockSelector:
                 try:
                     result = pywencai.get(query=query, loop=True)
                     self.logger.debug(f"问财原始结果: {result}")
+                    log_utils.pandas_to_csv(result, file_path=f"logs/main_force_plan_{i}.csv", print_index=True)
                     
                     if result is None:
                         self.logger.warning(f"  ⚠️ 方案{i}返回None，尝试下一个方案")
@@ -199,7 +193,7 @@ class MainForceStockSelector:
                 break
         
         if interval_pct_col:
-            self.logger.info(f"\n使用字段: {interval_pct_col}")
+            self.logger.info(f"\n筛选区间涨跌幅，使用字段: {interval_pct_col}")
             
             # 转换为数值并筛选
             filtered_df[interval_pct_col] = pd.to_numeric(filtered_df[interval_pct_col], errors='coerce')
@@ -217,7 +211,7 @@ class MainForceStockSelector:
         market_cap_cols = [col for col in df.columns if '总市值' in col or '市值' in col]
         if market_cap_cols:
             col_name = market_cap_cols[0]
-            self.logger.info(f"\n使用字段: {col_name}")
+            self.logger.info(f"\n筛选市值，使用字段: {col_name}")
             
             # 转换为数值（单位可能是亿或元）
             filtered_df[col_name] = pd.to_numeric(filtered_df[col_name], errors='coerce')

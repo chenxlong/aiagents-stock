@@ -16,6 +16,9 @@ import json
 import config
 import log_utils
 
+# 显示候选股票前多少行数（前100名）
+_prompt_display_stock_data_top_num = 100
+
 class MainForceAnalyzer:
     """主力选股分析器 - 批量整体分析"""
     
@@ -99,6 +102,7 @@ class MainForceAnalyzer:
             # 保存原始数据
             self.raw_stocks = filtered_data
             self.logger.info(f"筛选后数据: {filtered_data}")
+            log_utils.pandas_to_csv(filtered_data, file_path=f"logs/main_force_filtered.csv", print_index=True)
             
             # 步骤3: 整体数据分析（不是逐个分析）
             self.logger.info(f"\n{'='*80}")
@@ -153,7 +157,8 @@ class MainForceAnalyzer:
         summary_lines.append(f"候选股票总数: {len(df)}只")
         
         # 主力资金统计
-        main_fund_cols = [col for col in df.columns if '主力' in col and '净流入' in col]
+        # main_fund_cols = [col for col in df.columns if '主力' in col and '净流入' in col]
+        main_fund_cols = [col for col in df.columns if ('主力' in col and '净流入' in col) or '主力资金流向' in col]
         if main_fund_cols:
             col_name = main_fund_cols[0]
             df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
@@ -163,15 +168,26 @@ class MainForceAnalyzer:
             summary_lines.append(f"平均主力资金净流入: {avg_inflow/100000000:.2f}亿")
         
         # 涨跌幅统计
-        range_cols = [col for col in df.columns if '涨跌幅' in col]
+        # range_cols = [col for col in df.columns if '涨跌幅' in col]
+        last_percentage_change_cols = [col for col in df.columns if '最新涨跌幅' in col]
+        if last_percentage_change_cols:
+            col_name = last_percentage_change_cols[0]
+            df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
+            avg_change = df[col_name].mean()
+            max_change = df[col_name].max()
+            min_change = df[col_name].min()
+            summary_lines.append(f"最新日平均涨跌幅: {avg_change:.2f}%")
+            summary_lines.append(f"最新日涨跌幅范围: {min_change:.2f}% ~ {max_change:.2f}%")
+
+        range_cols = [col for col in df.columns if '区间涨跌幅' in col]
         if range_cols:
             col_name = range_cols[0]
             df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
             avg_change = df[col_name].mean()
             max_change = df[col_name].max()
             min_change = df[col_name].min()
-            summary_lines.append(f"平均涨跌幅: {avg_change:.2f}%")
-            summary_lines.append(f"涨跌幅范围: {min_change:.2f}% ~ {max_change:.2f}%")
+            summary_lines.append(f"区间平均涨跌幅: {avg_change:.2f}%")
+            summary_lines.append(f"区间涨跌幅范围: {min_change:.2f}% ~ {max_change:.2f}%")
         
         # 行业分布
         industry_cols = [col for col in df.columns if '行业' in col]
@@ -233,7 +249,8 @@ class MainForceAnalyzer:
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
-        
+
+        self.logger.debug(f"AI资金流向分析结果: {analysis}")
         self.logger.info("  ✅ 资金流向整体分析完成")
         time.sleep(1)
         
@@ -289,6 +306,7 @@ class MainForceAnalyzer:
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
         
+        self.logger.debug(f"AI行业板块分析结果: {analysis}")
         self.logger.info("  ✅ 行业板块整体分析完成")
         time.sleep(1)
         
@@ -344,6 +362,7 @@ class MainForceAnalyzer:
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
         
+        self.logger.debug(f"AI财务基本面分析结果: {analysis}")
         self.logger.info("  ✅ 财务基本面整体分析完成")
         time.sleep(1)
         
@@ -394,14 +413,16 @@ class MainForceAnalyzer:
                 seen.add(col)
                 unique_columns.append(col)
         
-        # 限制显示前50只股票的详细数据，避免超出token限制
-        display_df = df[unique_columns].head(50)
+        # 限制显示前多少只股票的详细数据，避免超出token限制
+        display_df = df[unique_columns].head(_prompt_display_stock_data_top_num)
+        # 保存到CSV文件
+        log_utils.pandas_to_csv(display_df, file_path=f"logs/main_force_filtered_{focus}_display_top_{_prompt_display_stock_data_top_num}.csv", print_index=True)
         
         # 转换为表格字符串
-        table_str = display_df.to_string(index=False, max_rows=50)
+        table_str = display_df.to_string(index=False, max_rows=_prompt_display_stock_data_top_num)
         
-        if len(df) > 50:
-            table_str += f"\n... 还有 {len(df) - 50} 只股票未显示"
+        if len(df) > _prompt_display_stock_data_top_num:
+            table_str += f"\n... 还有 {len(df) - _prompt_display_stock_data_top_num} 只股票未显示"
         
         return table_str
     
@@ -473,7 +494,7 @@ class MainForceAnalyzer:
 ```
 
 注意：
-- 必须严格按照JSON格式输出
+- 必须严格按照JSON格式输出，JSON内容要包含在 ```json 和 ``` 片段中
 - 推荐数量为{final_n}只
 - 按投资价值从高到低排序
 - 理由要具体、有说服力，体现三位分析师的综合观点
@@ -489,6 +510,7 @@ class MainForceAnalyzer:
             ]
             
             response = self.deepseek_client.call_api(messages, max_tokens=4000)
+            self.logger.debug(f"AI综合分析结果: {response}")
             
             # 解析JSON响应
             import re
@@ -518,7 +540,8 @@ class MainForceAnalyzer:
             self.logger.error(f"  ❌ JSON解析失败，使用备选方案: {e}")
             
             # 降级方案：按主力资金排序返回前N个
-            main_fund_cols = [col for col in df.columns if '主力' in col and '净流入' in col]
+            # main_fund_cols = [col for col in df.columns if '主力' in col and '净流入' in col]
+            main_fund_cols = [col for col in df.columns if ('主力' in col and '净流入' in col) or '主力资金流向' in col]
             if main_fund_cols:
                 col_name = main_fund_cols[0]
                 df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
