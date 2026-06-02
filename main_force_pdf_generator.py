@@ -32,8 +32,8 @@ def generate_main_force_markdown_report(analyzer, result):
 | **起始日期** | {start_date} |
 | **市值范围** | {min_cap}亿 - {max_cap}亿 |
 | **最大涨跌幅** | {max_change}% |
-| **初始数据量** | {result.get('total_fetched', 0)}只 |
-| **筛选后数量** | {result.get('filtered_count', 0)}只 |
+| **初始数据量** | {result.get('total_stocks', 0)}只 |
+| **筛选后数量** | {result.get('filtered_stocks', 0)}只 |
 | **最终推荐** | {len(result.get('final_recommendations', []))}只 |
 
 ---
@@ -84,16 +84,18 @@ def generate_main_force_markdown_report(analyzer, result):
     final_recommendations = result.get('final_recommendations', [])
     if final_recommendations:
         for rec in final_recommendations:
-            recommendation_reason = rec.get('reason', [])
-            markdown_reason = "- 暂无"
+            markdown_reasons = ''
+            recommendation_reason = rec.get('reasons', [])
+            if not recommendation_reason:
+                markdown_reasons = '- 暂无'
             for reason in recommendation_reason:
-                markdown_reason += f"- {reason}\n"
+                markdown_reasons += f"- {reason}\n"
 
             markdown_content += f"""
 ### 【第{rec['rank']}名】{rec['symbol']} - {rec['name']}
 
 **推荐理由**:
-{markdown_reason}
+{markdown_reasons}
 
 **关键指标**:
 """
@@ -116,6 +118,16 @@ def generate_main_force_markdown_report(analyzer, result):
                 main_fund_keys = [k for k in stock_data.keys() if '主力资金流向' in k]
                 if main_fund_keys:
                     main_fund_value = stock_data.get(main_fund_keys[0], 'N/A')
+                # 区间主力买入金额
+                range_main_fund_buy_value = 'N/A'
+                range_main_fund_buy_keys = [k for k in stock_data.keys() if '区间主力买入金额' in k]
+                if range_main_fund_buy_keys:
+                    range_main_fund_buy_value = stock_data.get(range_main_fund_buy_keys[0], 'N/A')
+                # 区间主力卖出金额
+                range_main_found_sell_value = 'N/A'
+                range_main_found_sell_keys = [k for k in stock_data.keys() if '区间主力卖出金额' in k]
+                if range_main_found_sell_keys:
+                    range_main_found_sell_value = stock_data.get(range_main_found_sell_keys[0], 'N/A')
 
                 # 区间涨跌幅
                 range_change_value = 'N/A'
@@ -138,7 +150,9 @@ def generate_main_force_markdown_report(analyzer, result):
                 markdown_content += f"""
 - **所属行业**: {industry_value}
 - **市值**: {cap_value}
-- **主力资金流向**: {main_fund_value}
+- **主力资金流向**: {main_fund_value}元
+- **区间主力买入金额**: {range_main_fund_buy_value}元
+- **区间主力卖出金额**: {range_main_found_sell_value}元
 - **区间涨跌幅**: {range_change_value}%
 - **市盈率**: {pe_ratio_value}
 - **市净率**: {pb_ratio_value}

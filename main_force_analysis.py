@@ -50,6 +50,10 @@ class MainForceAnalyzer:
         Returns:
             分析结果字典
         """
+        if not start_date:
+            date_obj = datetime.now() - timedelta(days=days_ago)
+            start_date = f"{date_obj.year}年{date_obj.month}月{date_obj.day}日"
+        
         result = {
             'success': False,
             'total_stocks': 0,
