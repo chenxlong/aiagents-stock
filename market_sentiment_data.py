@@ -11,6 +11,7 @@ import warnings
 import sys
 import io
 from data_source_manager import data_source_manager
+import log_utils
 
 warnings.filterwarnings('ignore')
 
@@ -38,6 +39,8 @@ class MarketSentimentDataFetcher:
     
     def __init__(self):
         self.arbr_period = 26  # ARBR计算周期
+        self.logger = log_utils.get_logger(__name__)
+        self.logger.debug("市场情绪数据获取器初始化")
     
     def get_market_sentiment_data(self, symbol, stock_data=None):
         """
@@ -50,6 +53,8 @@ class MarketSentimentDataFetcher:
         Returns:
             dict: 包含各类市场情绪指标的字典
         """
+        self.logger.info(f"   [Akshare] -获取市场情绪数据: {symbol}")
+
         sentiment_data = {
             "symbol": symbol,
             "arbr_data": None,          # ARBR指标数据
@@ -68,50 +73,50 @@ class MarketSentimentDataFetcher:
             
             if is_chinese:
                 # 1. 计算ARBR指标
-                print("📊 正在计算ARBR情绪指标...")
+                self.logger.info("📊 正在计算ARBR情绪指标...")
                 arbr_data = self._calculate_arbr(symbol, stock_data)
                 if arbr_data:
                     sentiment_data["arbr_data"] = arbr_data
                 
                 # 2. 获取换手率数据
-                print("📊 正在获取换手率数据...")
+                self.logger.info("📊 正在获取换手率数据...")
                 turnover_data = self._get_turnover_rate(symbol)
                 if turnover_data:
                     sentiment_data["turnover_rate"] = turnover_data
                 
                 # 3. 获取大盘情绪
-                print("📊 正在获取大盘情绪数据...")
+                self.logger.info("📊 正在获取大盘情绪数据...")
                 market_data = self._get_market_index_sentiment()
                 if market_data:
                     sentiment_data["market_index"] = market_data
                 
                 # 4. 获取涨跌停数据
-                print("📊 正在获取涨跌停数据...")
+                self.logger.info("📊 正在获取涨跌停数据...")
                 limit_data = self._get_limit_up_down_stats()
                 if limit_data:
                     sentiment_data["limit_up_down"] = limit_data
                 
                 # 5. 获取融资融券数据
-                print("📊 正在获取融资融券数据...")
+                self.logger.info("📊 正在获取融资融券数据...")
                 margin_data = self._get_margin_trading_data(symbol)
                 if margin_data:
                     sentiment_data["margin_trading"] = margin_data
                 
                 # 6. 获取市场恐慌指数
-                print("📊 正在计算市场恐慌指数...")
+                self.logger.info("📊 正在计算市场恐慌指数...")
                 fear_greed = self._get_fear_greed_index()
                 if fear_greed:
                     sentiment_data["fear_greed_index"] = fear_greed
                 
                 sentiment_data["data_success"] = True
-                print("✅ 市场情绪数据获取完成")
+                self.logger.info("✅ 市场情绪数据获取完成")
             else:
                 # 美股的情绪指标（简化版）
-                print("ℹ️ 美股暂不支持完整的市场情绪数据")
+                self.logger.info("ℹ️ 美股暂不支持完整的市场情绪数据")
                 sentiment_data["error"] = "美股暂不支持完整的市场情绪数据"
             
         except Exception as e:
-            print(f"❌ 获取市场情绪数据失败: {e}")
+            self.logger.error(f"❌ 获取市场情绪数据失败: {e}")
             sentiment_data["error"] = str(e)
         
         return sentiment_data
@@ -245,11 +250,13 @@ class MarketSentimentDataFetcher:
             }
             
         except Exception as e:
-            print(f"计算ARBR指标失败: {e}")
+            self.logger.error(f"计算ARBR指标失败: {e}")
             return None
     
     def _interpret_arbr(self, ar_value, br_value):
         """解读ARBR数值的含义"""
+        self.logger.info(f"解读ARBR数值的含义 AR={ar_value:.2f}, BR={br_value:.2f}")
+
         interpretation = []
         
         # AR指标解读
@@ -291,6 +298,8 @@ class MarketSentimentDataFetcher:
     
     def _generate_arbr_signals(self, ar_value, br_value):
         """生成ARBR交易信号"""
+        self.logger.info(f"生成ARBR交易信号 AR={ar_value:.2f}, BR={br_value:.2f}")
+
         signals = []
         signal_strength = 0
         
@@ -658,6 +667,8 @@ class MarketSentimentDataFetcher:
         """
         将市场情绪数据格式化为适合AI阅读的文本
         """
+        self.logger.info(f"将市场情绪数据格式化为适合AI阅读的文本")
+
         if not sentiment_data or not sentiment_data.get("data_success"):
             return "未能获取市场情绪数据"
         

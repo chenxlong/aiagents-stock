@@ -1188,6 +1188,7 @@ def run_batch_analysis(stock_list, period, batch_mode="顺序分析"):
 
 def run_stock_analysis(symbol, period):
     """运行股票分析"""
+    logger.debug(f"开始分析股票 {symbol}，时间范围 {period}")
 
     # 进度条
     progress_bar = st.progress(0)
@@ -1199,6 +1200,10 @@ def run_stock_analysis(symbol, period):
         progress_bar.progress(10)
 
         stock_info, stock_data, indicators = get_stock_data(symbol, period)
+        logger.debug(f"获取到的股票数据\n: {stock_info}")
+        logger.debug(f"获取到的股票数据\n: {stock_data}")
+        logger.debug(f"获取到的股票指标数据\n: {indicators}")
+
 
         if "error" in stock_info:
             st.error(f"❌ {stock_info['error']}")
@@ -1220,6 +1225,7 @@ def run_stock_analysis(symbol, period):
         status_text.text("📊 正在获取财务数据...")
         fetcher = StockDataFetcher()  # 创建fetcher实例
         financial_data = fetcher.get_financial_data(symbol)
+        logger.debug(f"获取到的财务数据\n: {financial_data}")
         progress_bar.progress(35)
 
         # 2.5 获取季报数据（仅在选择了基本面分析师且为A股时）
@@ -1231,6 +1237,7 @@ def run_stock_analysis(symbol, period):
                 from quarterly_report_data import QuarterlyReportDataFetcher
                 quarterly_fetcher = QuarterlyReportDataFetcher()
                 quarterly_data = quarterly_fetcher.get_quarterly_reports(symbol)
+                logger.debug(f"获取到的季报数据\n: {quarterly_data}")
                 if quarterly_data and quarterly_data.get('data_success'):
                     income_count = quarterly_data.get('income_statement', {}).get('periods', 0) if quarterly_data.get('income_statement') else 0
                     balance_count = quarterly_data.get('balance_sheet', {}).get('periods', 0) if quarterly_data.get('balance_sheet') else 0
@@ -1258,6 +1265,7 @@ def run_stock_analysis(symbol, period):
                 from fund_flow_akshare import FundFlowAkshareDataFetcher
                 fund_flow_fetcher = FundFlowAkshareDataFetcher()
                 fund_flow_data = fund_flow_fetcher.get_fund_flow_data(symbol)
+                logger.debug(f"获取到的资金流向数据\n: {fund_flow_data}")
                 if fund_flow_data and fund_flow_data.get('data_success'):
                     days = fund_flow_data.get('fund_flow_data', {}).get('days', 0) if fund_flow_data.get('fund_flow_data') else 0
                     st.info(f"✅ 成功获取 {days} 个交易日的资金流向数据")
@@ -1278,6 +1286,7 @@ def run_stock_analysis(symbol, period):
                 from market_sentiment_data import MarketSentimentDataFetcher
                 sentiment_fetcher = MarketSentimentDataFetcher()
                 sentiment_data = sentiment_fetcher.get_market_sentiment_data(symbol, stock_data)
+                logger.debug(f"获取到的市场情绪数据\n: {sentiment_data}")
                 if sentiment_data and sentiment_data.get('data_success'):
                     st.info("✅ 成功获取市场情绪数据（ARBR、换手率、涨跌停等）")
                 else:
@@ -1297,6 +1306,7 @@ def run_stock_analysis(symbol, period):
                 from qstock_news_data import QStockNewsDataFetcher
                 news_fetcher = QStockNewsDataFetcher()
                 news_data = news_fetcher.get_stock_news(symbol)
+                logger.debug(f"获取到的新闻数据\n: {news_data}")
                 if news_data and news_data.get('data_success'):
                     news_count = news_data.get('news_data', {}).get('count', 0) if news_data.get('news_data') else 0
                     st.info(f"✅ 成功从东方财富获取个股 {news_count} 条新闻")
@@ -1316,6 +1326,7 @@ def run_stock_analysis(symbol, period):
             status_text.text("⚠️ 正在获取风险数据（限售解禁、大股东减持、重要事件）...")
             try:
                 risk_data = fetcher.get_risk_data(symbol)
+                logger.debug(f"获取到的风险数据\n: {risk_data}")
                 if risk_data and risk_data.get('data_success'):
                     # 统计获取到的风险数据类型
                     risk_types = []
@@ -1341,6 +1352,7 @@ def run_stock_analysis(symbol, period):
 
         # 6. 初始化AI分析系统
         status_text.text("🤖 正在初始化AI分析系统...")
+        logger.info("🤖 正在初始化AI分析系统...")
         # 使用选择的模型
         selected_model = st.session_state.get('selected_model', config.DEFAULT_MODEL_NAME)
         agents = StockAnalysisAgents(model=selected_model)

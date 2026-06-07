@@ -2,20 +2,24 @@ from deepseek_client import DeepSeekClient
 from typing import Dict, Any
 import time
 import config
+import log_utils
 
 class StockAnalysisAgents:
     """股票分析AI智能体集合"""
     
     def __init__(self, model=None):
+        self.logger = log_utils.get_logger(__name__)
+        self.logger.debug("股票分析AI智能体初始化")
         self.model = model or config.DEFAULT_MODEL_NAME
         self.deepseek_client = DeepSeekClient(model=self.model)
         
     def technical_analyst_agent(self, stock_info: Dict, stock_data: Any, indicators: Dict) -> Dict[str, Any]:
         """技术面分析智能体"""
-        print("🔍 技术分析师正在分析中...")
+        self.logger.info("🔍 技术分析师正在分析中...")
         time.sleep(1)  # 模拟分析时间
         
         analysis = self.deepseek_client.technical_analysis(stock_info, stock_data, indicators)
+        self.logger.info(f"技术面分析结果:\n {analysis}")
         
         return {
             "agent_name": "技术分析师",
@@ -27,20 +31,21 @@ class StockAnalysisAgents:
     
     def fundamental_analyst_agent(self, stock_info: Dict, financial_data: Dict = None, quarterly_data: Dict = None) -> Dict[str, Any]:
         """基本面分析智能体"""
-        print("📊 基本面分析师正在分析中...")
+        self.logger.info("📊 基本面分析师正在分析中...")
         
         # 如果有季报数据，显示数据来源
         if quarterly_data and quarterly_data.get('data_success'):
             income_count = quarterly_data.get('income_statement', {}).get('periods', 0) if quarterly_data.get('income_statement') else 0
             balance_count = quarterly_data.get('balance_sheet', {}).get('periods', 0) if quarterly_data.get('balance_sheet') else 0
             cash_flow_count = quarterly_data.get('cash_flow', {}).get('periods', 0) if quarterly_data.get('cash_flow') else 0
-            print(f"   ✓ 已获取季报数据：利润表{income_count}期，资产负债表{balance_count}期，现金流量表{cash_flow_count}期")
+            self.logger.info(f"   ✓ 已获取季报数据：利润表{income_count}期，资产负债表{balance_count}期，现金流量表{cash_flow_count}期")
         else:
-            print("   ⚠ 未获取到季报数据，将基于基本财务数据分析")
+            self.logger.warning("   ⚠ 未获取到季报数据，将基于基本财务数据分析")
         
         time.sleep(1)
         
         analysis = self.deepseek_client.fundamental_analysis(stock_info, financial_data, quarterly_data)
+        self.logger.info(f"基本面分析结果:\n {analysis}")
         
         return {
             "agent_name": "基本面分析师", 
@@ -53,17 +58,18 @@ class StockAnalysisAgents:
     
     def fund_flow_analyst_agent(self, stock_info: Dict, indicators: Dict, fund_flow_data: Dict = None) -> Dict[str, Any]:
         """资金面分析智能体"""
-        print("💰 资金面分析师正在分析中...")
+        self.logger.info("💰 资金面分析师正在分析中...")
         
         # 如果有资金流向数据，显示数据来源
         if fund_flow_data and fund_flow_data.get('data_success'):
-            print("   ✓ 已获取资金流向数据（akshare数据源）")
+            self.logger.info("   ✓ 已获取资金流向数据（akshare数据源）")
         else:
-            print("   ⚠ 未获取到资金流向数据，将基于技术指标分析")
+            self.logger.warning("   ⚠ 未获取到资金流向数据，将基于技术指标分析")
         
         time.sleep(1)
         
         analysis = self.deepseek_client.fund_flow_analysis(stock_info, indicators, fund_flow_data)
+        self.logger.info(f"资金面分析结果:\n {analysis}")
         
         return {
             "agent_name": "资金面分析师",
@@ -76,13 +82,13 @@ class StockAnalysisAgents:
     
     def risk_management_agent(self, stock_info: Dict, indicators: Dict, risk_data: Dict = None) -> Dict[str, Any]:
         """风险管理智能体（增强版）"""
-        print("⚠️ 风险管理师正在评估中...")
+        self.logger.info("⚠️ 风险管理师正在评估中...")
         
         # 如果有风险数据，显示数据来源
         if risk_data and risk_data.get('data_success'):
-            print("   ✓ 已获取问财风险数据（限售解禁、大股东减持、重要事件）")
+            self.logger.info("   ✓ 已获取问财风险数据（限售解禁、大股东减持、重要事件）")
         else:
-            print("   ⚠ 未获取到风险数据，将基于基本信息分析")
+            self.logger.warning("   ⚠ 未获取到风险数据，将基于基本信息分析")
         
         time.sleep(1)
         
@@ -200,6 +206,7 @@ class StockAnalysisAgents:
 请基于实际数据进行客观、专业、严谨的风险评估，给出可操作的风险控制建议。
 如果某些风险数据缺失，也要指出数据缺失本身可能带来的风险。
 """
+        self.logger.info(f"风险提示:\n {risk_prompt}")
         
         messages = [
             {"role": "system", "content": "你是一名资深的风险管理专家，具有20年以上的风险识别和控制经验，擅长全面评估各类投资风险，特别关注限售解禁、股东减持、重要事件等可能影响股价的风险因素。你擅长从海量原始数据中提取关键信息，进行深度解析和量化评估。"},
@@ -207,6 +214,7 @@ class StockAnalysisAgents:
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=6000)
+        self.logger.info(f"风险分析结果:\n {analysis}")
         
         return {
             "agent_name": "风险管理师",
@@ -219,13 +227,13 @@ class StockAnalysisAgents:
     
     def market_sentiment_agent(self, stock_info: Dict, sentiment_data: Dict = None) -> Dict[str, Any]:
         """市场情绪分析智能体"""
-        print("📈 市场情绪分析师正在分析中...")
+        self.logger.info("📈 市场情绪分析师正在分析中...")
         
         # 如果有市场情绪数据，显示数据来源
         if sentiment_data and sentiment_data.get('data_success'):
-            print("   ✓ 已获取市场情绪数据（ARBR、换手率、涨跌停等）")
+            self.logger.info("   ✓ 已获取市场情绪数据（ARBR、换手率、涨跌停等）")
         else:
-            print("   ⚠ 未获取到详细情绪数据，将基于基本信息分析")
+            self.logger.warning("   ⚠ 未获取到详细情绪数据，将基于基本信息分析")
         
         time.sleep(1)
         
@@ -288,6 +296,7 @@ class StockAnalysisAgents:
 
 请确保分析基于实际数据，给出客观专业的市场情绪评估。
 """
+        self.logger.info(f"市场情绪提示:\n {sentiment_prompt}")
         
         messages = [
             {"role": "system", "content": "你是一名专业的市场情绪分析师，擅长解读市场心理和投资者行为，善于利用ARBR等情绪指标进行分析。"},
@@ -295,6 +304,7 @@ class StockAnalysisAgents:
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
+        self.logger.info(f"市场情绪分析结果:\n {analysis}")
         
         return {
             "agent_name": "市场情绪分析师",
@@ -307,15 +317,15 @@ class StockAnalysisAgents:
     
     def news_analyst_agent(self, stock_info: Dict, news_data: Dict = None) -> Dict[str, Any]:
         """新闻分析智能体"""
-        print("📰 新闻分析师正在分析中...")
+        self.logger.info("📰 新闻分析师正在分析中...")
         
         # 如果有新闻数据，显示数据来源
         if news_data and news_data.get('data_success'):
             news_count = news_data.get('news_data', {}).get('count', 0) if news_data.get('news_data') else 0
             source = news_data.get('source', 'unknown')
-            print(f"   ✓ 已从 {source} 获取 {news_count} 条新闻")
+            self.logger.info(f"   ✓ 已从 {source} 获取 {news_count} 条新闻")
         else:
-            print("   ⚠ 未获取到新闻数据，将基于基本信息分析")
+            self.logger.warning("   ⚠ 未获取到新闻数据，将基于基本信息分析")
         
         time.sleep(1)
         
@@ -388,6 +398,7 @@ class StockAnalysisAgents:
 请确保分析客观、专业，重点关注对投资决策有实质性影响的内容。
 如果某些新闻的重要性较低，可以简要提及或略过。
 """
+        self.logger.info(f"新闻提示:\n {news_prompt}")
         
         messages = [
             {"role": "system", "content": "你是一名专业的新闻分析师，擅长解读新闻事件、舆情分析，评估新闻对股价的影响。你具有敏锐的洞察力和丰富的市场经验。"},
@@ -395,7 +406,8 @@ class StockAnalysisAgents:
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
-        
+        self.logger.info(f"新闻分析结果:\n {analysis}")
+
         return {
             "agent_name": "新闻分析师",
             "agent_role": "负责新闻事件分析、舆情研究、重大事件影响评估",
@@ -428,13 +440,13 @@ class StockAnalysisAgents:
                 'news': True
             }
         
-        print("🚀 启动多智能体股票分析系统...")
-        print("=" * 50)
+        self.logger.info("🚀 启动多智能体股票分析系统...")
+        self.logger.info("=" * 50)
         
         # 显示参与分析的分析师
         active_analysts = [name for name, enabled in enabled_analysts.items() if enabled]
-        print(f"📋 参与分析的分析师: {', '.join(active_analysts)}")
-        print("=" * 50)
+        self.logger.info(f"📋 参与分析的分析师: {', '.join(active_analysts)}")
+        self.logger.info("=" * 50)
         
         # 并行运行各个分析师
         agents_results = {}
@@ -463,14 +475,14 @@ class StockAnalysisAgents:
         if enabled_analysts.get('news', False):
             agents_results["news"] = self.news_analyst_agent(stock_info, news_data)
         
-        print("✅ 所有已选择的分析师完成分析")
-        print("=" * 50)
+        self.logger.info("✅ 所有已选择的分析师完成分析")
+        self.logger.info("=" * 50)
         
         return agents_results
     
     def conduct_team_discussion(self, agents_results: Dict[str, Any], stock_info: Dict) -> str:
         """进行团队讨论"""
-        print("🤝 分析团队正在进行综合讨论...")
+        self.logger.info("🤝 分析团队正在进行综合讨论...")
         time.sleep(2)
         
         # 收集参与分析的分析师名单和报告
@@ -524,6 +536,7 @@ class StockAnalysisAgents:
 请以对话形式展现讨论过程，体现专业团队的思辨过程。
 注意：只讨论参与分析的分析师的观点。
 """
+        self.logger.info(f"团队讨论提示:\n {discussion_prompt}")
         
         messages = [
             {"role": "system", "content": "你需要模拟一场专业的投资团队讨论会议，体现不同角色的观点碰撞和最终共识形成。"},
@@ -531,16 +544,18 @@ class StockAnalysisAgents:
         ]
         
         discussion_result = self.deepseek_client.call_api(messages, max_tokens=6000)
-        
-        print("✅ 团队讨论完成")
+        self.logger.info(f"团队讨论结果:\n {discussion_result}")
+
+        self.logger.info("✅ 团队讨论完成")
         return discussion_result
     
     def make_final_decision(self, discussion_result: str, stock_info: Dict, indicators: Dict) -> Dict[str, Any]:
         """制定最终投资决策"""
-        print("📋 正在制定最终投资决策...")
+        self.logger.info("📋 正在制定最终投资决策...")
         time.sleep(1)
         
         decision = self.deepseek_client.final_decision(discussion_result, stock_info, indicators)
+        self.logger.info(f"最终投资决策:\n {decision}")
         
-        print("✅ 最终投资决策完成")
+        self.logger.info("✅ 最终投资决策完成")
         return decision

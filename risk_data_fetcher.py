@@ -12,6 +12,7 @@ from typing import Dict, Any
 import time
 import warnings
 import os
+import log_utils
 
 # 屏蔽pywencai的Node.js警告信息（不影响功能）
 warnings.filterwarnings('ignore', category=DeprecationWarning)
@@ -24,7 +25,8 @@ class RiskDataFetcher:
     
     def __init__(self):
         """初始化"""
-        pass
+        self.logger = log_utils.get_logger(__name__)
+        self.logger.debug("风险数据获取模块初始化")
     
     def get_risk_data(self, symbol: str) -> Dict[str, Any]:
         """
@@ -36,7 +38,7 @@ class RiskDataFetcher:
         Returns:
             包含风险数据的字典
         """
-        print(f"\n正在获取 {symbol} 的风险数据...")
+        self.logger.info(f"正在获取 {symbol} 的风险数据...")
         
         risk_data = {
             'symbol': symbol,
@@ -49,7 +51,7 @@ class RiskDataFetcher:
         
         try:
             # 1. 获取限售解禁数据
-            print("   查询限售解禁数据...")
+            self.logger.info("   查询限售解禁数据...")
             lifting_ban = self._get_lifting_ban_data(symbol)
             risk_data['lifting_ban'] = lifting_ban
             if lifting_ban and lifting_ban.get('has_data'):
@@ -96,6 +98,7 @@ class RiskDataFetcher:
     
     def _get_lifting_ban_data(self, symbol: str) -> Dict[str, Any]:
         """获取限售解禁数据"""
+        self.logger.info(f"正在获取 {symbol} 的限售解禁数据...")
         result = {
             'has_data': False,
             'query': f"{symbol}限售解禁",
@@ -109,6 +112,7 @@ class RiskDataFetcher:
             
             # 使用pywencai查询
             response = pywencai.get(query=query, loop=True)
+            self.logger.debug(f"获取到的原始限售解禁数据响应: {response}")
             
             if response is None:
                 return result
@@ -333,6 +337,8 @@ class RiskDataFetcher:
     
     def format_risk_data_for_ai(self, risk_data: Dict[str, Any]) -> str:
         """格式化风险数据供AI分析使用 - 直接转换DataFrame为字符串"""
+        self.logger.info(f"格式化风险数据供AI分析使用")
+
         if not risk_data or not risk_data.get('data_success'):
             return "未获取到风险数据"
         
@@ -399,7 +405,7 @@ class RiskDataFetcher:
             return "\n".join(formatted_text) if formatted_text else "暂无风险数据"
             
         except Exception as e:
-            print(f"格式化风险数据时出错: {str(e)}")
+            self.logger.error(f"格式化风险数据时出错: {str(e)}")
             import traceback
             traceback.print_exc()
             return f"格式化风险数据时出错: {str(e)}"

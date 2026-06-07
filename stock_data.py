@@ -2,7 +2,7 @@ import yfinance as yf
 import akshare as ak
 import pandas as pd
 import numpy as np
-import ta
+from ta import trend, momentum, volatility  # 显式导入子模块以消除 IDE 警告
 from datetime import datetime, timedelta
 import requests
 import json
@@ -23,6 +23,7 @@ class StockDataFetcher:
         
     def get_stock_info(self, symbol):
         """获取股票基本信息"""
+        self.logger.debug(f"开始获取股票 {symbol} 的基本信息")
         try:
             # 处理中国A股
             if self._is_chinese_stock(symbol):
@@ -38,6 +39,7 @@ class StockDataFetcher:
     
     def get_stock_data(self, symbol, period="1y", interval="1d"):
         """获取股票历史数据"""
+        self.logger.debug(f"开始获取股票 {symbol} ，时间周期 {period} ，时间间隔 {interval} 的历史数据")
         try:
             if self._is_chinese_stock(symbol):
                 return self._get_chinese_stock_data(symbol, period)
@@ -73,20 +75,23 @@ class StockDataFetcher:
     
     def _get_chinese_stock_info(self, symbol):
         """获取中国股票基本信息（支持akshare和tushare数据源自动切换）"""
+        self.logger.debug(f"开始获取中国股票 {symbol} 的基本信息")
+        # 初始化基本信息
+        info = {
+            "symbol": symbol,
+            "name": "未知",
+            "current_price": "N/A",
+            "change_percent": "N/A",
+            "pe_ratio": "N/A",
+            "pb_ratio": "N/A",
+            "market_cap": "N/A",
+            "list_date": "N/A",
+            "circulating_market_cap": "N/A",
+            "market": "中国A股",
+            "exchange": "上海/深圳证券交易所"
+        }
+        
         try:
-            # 初始化基本信息
-            info = {
-                "symbol": symbol,
-                "name": "未知",
-                "current_price": "N/A",
-                "change_percent": "N/A",
-                "pe_ratio": "N/A",
-                "pb_ratio": "N/A",
-                "market_cap": "N/A",
-                "market": "中国A股",
-                "exchange": "上海/深圳证券交易所"
-            }
-            
             # 先尝试使用数据源管理器获取基本信息
             basic_info = self.data_source_manager.get_stock_basic_info(symbol)
             if basic_info:
@@ -95,6 +100,8 @@ class StockDataFetcher:
             # 方法1: 尝试获取个股详细信息（akshare）
             try:
                 stock_info = ak.stock_individual_info_em(symbol=symbol)
+                self.logger.info(f"[Akshare] 获取到个股详细信息:\n {stock_info} ")
+
                 if stock_info is not None and not stock_info.empty:
                     for _, row in stock_info.iterrows():
                         key = row['item']
@@ -135,6 +142,8 @@ class StockDataFetcher:
                             ts_code=ts_code,
                             trade_date=datetime.now().strftime('%Y%m%d')
                         )
+                        self.logger.info(f"[Tushare] 获取股票 {symbol} 获取到基本信息:\n {df} ")
+
                         if df is not None and not df.empty:
                             row = df.iloc[0]
                             info['pe_ratio'] = row.get('pe', 'N/A')
@@ -182,13 +191,14 @@ class StockDataFetcher:
             #     print(f"[Akshare] 获取实时数据失败: {e}")
             #     # 如果实时数据获取失败，尝试使用数据源管理器获取历史数据（支持tushare备用）
             try:
-                self.logger.info(f"[数据源管理器] 尝试获取最近交易数据...")
+                self.logger.info(f"[数据源管理器] 尝试获取历史价格数据...")
                 hist_data = self.data_source_manager.get_stock_hist_data(
                     symbol=symbol,
                     start_date=(datetime.now() - timedelta(days=30)).strftime('%Y%m%d'),
                     end_date=datetime.now().strftime('%Y%m%d'),
                     adjust='qfq'
                 )
+                self.logger.info(f"[数据源管理器] 获取到 {symbol} 的历史价格数据:\n {hist_data} ")
                 
                 if hist_data is not None and not hist_data.empty:
                     # 标准化列名
@@ -207,7 +217,9 @@ class StockDataFetcher:
             # 方法3: 使用百度估值数据获取市盈率和市净率
             if info['pe_ratio'] == 'N/A':
                 try:
+                    self.logger.info(f"使用百度估值数据获取市盈率...")
                     pe_data = ak.stock_zh_valuation_baidu(symbol=symbol, indicator="市盈率(TTM)")
+                    self.logger.info(f"[Akshare] 获取到 {symbol} 的市盈率数据:\n {pe_data} ")
                     if pe_data is not None and not pe_data.empty:
                         latest_pe = pe_data.iloc[-1]['value']
                         if latest_pe and latest_pe != '-':
@@ -219,7 +231,9 @@ class StockDataFetcher:
             
             if info['pb_ratio'] == 'N/A':
                 try:
+                    self.logger.info(f"使用百度估值数据获取市净率...")
                     pb_data = ak.stock_zh_valuation_baidu(symbol=symbol, indicator="市净率")
+                    self.logger.info(f"[Akshare] 获取到 {symbol} 的市净率数据:\n {pb_data} ")
                     if pb_data is not None and not pb_data.empty:
                         latest_pb = pb_data.iloc[-1]['value']
                         if latest_pb and latest_pb != '-':
@@ -234,17 +248,7 @@ class StockDataFetcher:
         except Exception as e:
             self.logger.error(f"获取中国股票信息完全失败: {e}")
             # 返回基本信息，避免完全失败
-            return {
-                "symbol": symbol,
-                "name": f"股票{symbol}",
-                "current_price": "N/A",
-                "change_percent": "N/A",
-                "pe_ratio": "N/A",
-                "pb_ratio": "N/A",
-                "market_cap": "N/A",
-                "market": "中国A股",
-                "exchange": "上海/深圳证券交易所"
-            }
+            return info
     
     def _get_hk_stock_info(self, symbol):
         """获取港股基本信息"""
@@ -425,6 +429,7 @@ class StockDataFetcher:
     
     def _get_chinese_stock_data(self, symbol, period="1y"):
         """获取中国股票历史数据（支持akshare和tushare数据源自动切换）"""
+        self.logger.debug(f"开始获取中国股票 {symbol} ，时间周期 {period} 的历史数据")
         try:
             # 计算日期范围
             end_date = datetime.now().strftime('%Y%m%d')
@@ -444,6 +449,7 @@ class StockDataFetcher:
                 end_date=end_date,
                 adjust='qfq'
             )
+            self.logger.info(f"获取到 {symbol} 的历史数据:\n {df}")
             
             if df is not None and not df.empty:
                 # 标准化列名为大写（与原有格式保持一致）
@@ -527,46 +533,49 @@ class StockDataFetcher:
     
     def calculate_technical_indicators(self, df):
         """计算技术指标"""
+        self.logger.debug(f"开始计算 {df.index.name} 的技术指标")
         try:
             if isinstance(df, dict) and "error" in df:
                 return df
                 
             # 移动平均线
-            df['MA5'] = ta.trend.sma_indicator(df['Close'], window=5)
-            df['MA10'] = ta.trend.sma_indicator(df['Close'], window=10)
-            df['MA20'] = ta.trend.sma_indicator(df['Close'], window=20)
-            df['MA60'] = ta.trend.sma_indicator(df['Close'], window=60)
-            
+            df['MA5'] = trend.sma_indicator(df['Close'], window=5)
+            df['MA10'] = trend.sma_indicator(df['Close'], window=10)
+            df['MA20'] = trend.sma_indicator(df['Close'], window=20)
+            df['MA60'] = trend.sma_indicator(df['Close'], window=60)
+
             # RSI
-            df['RSI'] = ta.momentum.rsi(df['Close'], window=14)
-            
+            df['RSI'] = momentum.rsi(df['Close'], window=14)
+
             # MACD
-            macd = ta.trend.MACD(df['Close'])
+            macd = trend.MACD(df['Close'])
             df['MACD'] = macd.macd()
             df['MACD_signal'] = macd.macd_signal()
             df['MACD_histogram'] = macd.macd_diff()
-            
+
             # 布林带
-            bollinger = ta.volatility.BollingerBands(df['Close'])
+            bollinger = volatility.BollingerBands(df['Close'])
             df['BB_upper'] = bollinger.bollinger_hband()
             df['BB_middle'] = bollinger.bollinger_mavg()
             df['BB_lower'] = bollinger.bollinger_lband()
-            
+
             # KDJ指标
-            df['K'] = ta.momentum.stoch(df['High'], df['Low'], df['Close'])
-            df['D'] = ta.momentum.stoch_signal(df['High'], df['Low'], df['Close'])
-            
+            df['K'] = momentum.stoch(df['High'], df['Low'], df['Close'])
+            df['D'] = momentum.stoch_signal(df['High'], df['Low'], df['Close'])
+
             # 成交量指标
-            df['Volume_MA5'] = ta.trend.sma_indicator(df['Volume'], window=5)
+            df['Volume_MA5'] = trend.sma_indicator(df['Volume'], window=5)
             df['Volume_ratio'] = df['Volume'] / df['Volume_MA5']
             
             return df
             
         except Exception as e:
+            self.logger.error(f"计算技术指标失败: {e}")
             return {"error": f"计算技术指标失败: {str(e)}"}
     
     def get_latest_indicators(self, df):
         """获取最新的技术指标值"""
+        self.logger.debug(f"开始获取最新技术指标")
         try:
             if isinstance(df, dict) and "error" in df:
                 return df
@@ -605,6 +614,7 @@ class StockDataFetcher:
     
     def _get_chinese_financial_data(self, symbol):
         """获取中国股票财务数据"""
+        self.logger.debug(f"开始获取中国股票 {symbol} 的财务数据")
         financial_data = {
             "symbol": symbol,
             "balance_sheet": None,  # 资产负债表
@@ -618,6 +628,7 @@ class StockDataFetcher:
             # 1. 获取资产负债表
             try:
                 balance_sheet = ak.stock_financial_abstract_ths(symbol=symbol, indicator="资产负债表")
+                self.logger.info(f"获取到 {symbol} 的资产负债表:\n {balance_sheet}")
                 if balance_sheet is not None and not balance_sheet.empty:
                     financial_data["balance_sheet"] = balance_sheet.head(8).to_dict('records')
             except Exception as e:
@@ -626,6 +637,7 @@ class StockDataFetcher:
             # 2. 获取利润表
             try:
                 income_statement = ak.stock_financial_abstract_ths(symbol=symbol, indicator="利润表")
+                self.logger.info(f"获取到 {symbol} 的利润表:\n {income_statement}")
                 if income_statement is not None and not income_statement.empty:
                     financial_data["income_statement"] = income_statement.head(8).to_dict('records')
             except Exception as e:
@@ -634,6 +646,7 @@ class StockDataFetcher:
             # 3. 获取现金流量表
             try:
                 cash_flow = ak.stock_financial_abstract_ths(symbol=symbol, indicator="现金流量表")
+                self.logger.info(f"获取到 {symbol} 的现金流量表:\n {cash_flow}")
                 if cash_flow is not None and not cash_flow.empty:
                     financial_data["cash_flow"] = cash_flow.head(8).to_dict('records')
             except Exception as e:
@@ -642,6 +655,7 @@ class StockDataFetcher:
             # 4. 获取主要财务指标
             try:
                 financial_abstract = ak.stock_financial_abstract(symbol=symbol)
+                self.logger.info(f"获取到 {symbol} 的主要财务指标:\n {financial_abstract}")
                 if financial_abstract is not None and not financial_abstract.empty:
                     # 提取关键财务指标
                     key_indicators = [

@@ -1,0 +1,349 @@
+@startuml run_stock_analysis_sequence
+title run_stock_analysis 函数调用时序图
+
+actor User
+
+' ===== 参与者声明（仅文件名）=====
+participant "app.py" as App #LightBlue
+participant "stock_data.py" as StockData #LightYellow
+participant "quarterly_report_data.py" as Quarterly #LightGray
+participant "fund_flow_akshare.py" as FundFlow #LightGray
+participant "market_sentiment_data.py" as Sentiment #LightGray
+participant "qstock_news_data.py" as News #LightGray
+participant "ai_agents.py" as Agents #LightPink
+participant "deepseek_client.py" as DeepSeek #Orange
+participant "DeepSeek API" as API #Red
+participant "database.py" as DB #LightSteelBlue
+participant "Streamlit UI" as UI #White
+
+== 初始化阶段 ==
+
+User -> App : run_stock_analysis(symbol, period)
+activate App
+note right #LightBlue: app.py\n用户输入股票代码和时间范围
+
+App -> App : st.progress(0)
+
+== 1. 获取股票数据 (0-20%) ==
+
+App -> StockData : get_stock_data(symbol, period)
+activate StockData
+note right #LightYellow: stock_data.py\n获取K线数据、技术指标
+StockData --> App : (stock_info, stock_data, indicators)
+deactivate StockData
+
+alt 数据获取失败
+    App -> App : 显示错误信息
+    App --> User
+end
+
+App -> UI : display_stock_info(stock_info, indicators)
+App -> UI : display_stock_chart(stock_data, stock_info)
+
+== 2. 获取财务数据 (20-35%) ==
+
+App -> StockData : StockDataFetcher()
+activate StockData
+App -> StockData : get_financial_data(symbol)
+note right #LightYellow: stock_data.py\n获取PE、PB、营业收入等
+StockData --> App : financial_data
+deactivate StockData
+
+== 3. 获取季报数据 (35-37%) [条件] ==
+
+alt A股 + 启用基本面分析
+    App -> Quarterly : QuarterlyReportDataFetcher()
+    activate Quarterly
+    App -> Quarterly : get_quarterly_reports(symbol)
+    note right #LightGray: quarterly_report_data.py\n获取8期季报数据\n利润表、资产负债表、现金流量表
+    Quarterly --> App : quarterly_data
+    deactivate Quarterly
+end
+
+== 4. 获取资金流向数据 (40%) [条件] ==
+
+alt A股 + 启用资金流向分析
+    App -> FundFlow : FundFlowAkshareDataFetcher()
+    activate FundFlow
+    App -> FundFlow : get_fund_flow_data(symbol)
+    note right #LightGray: fund_flow_akshare.py\n获取主力资金净流入\n超单、大单、中单、小单
+    FundFlow --> App : fund_flow_data
+    deactivate FundFlow
+end
+
+== 5. 获取市场情绪数据 (45%) [条件] ==
+
+alt A股 + 启用情绪分析
+    App -> Sentiment : MarketSentimentDataFetcher()
+    activate Sentiment
+    App -> Sentiment : get_market_sentiment_data(symbol, stock_data)
+    note right #LightGray: market_sentiment_data.py\n计算ARBR指标\n涨跌停、换手率
+    Sentiment --> App : sentiment_data
+    deactivate Sentiment
+end
+
+== 6. 获取新闻数据 (45%) [条件] ==
+
+alt A股 + 启用新闻分析
+    App -> News : QStockNewsDataFetcher()
+    activate News
+    App -> News : get_stock_news(symbol)
+    note right #LightGray: qstock_news_data.py\n从东方财富获取个股新闻
+    News --> App : news_data
+    deactivate News
+end
+
+== 7. 获取风险数据 (50%) [条件] ==
+
+alt A股 + 启用风险管理
+    App -> StockData : get_risk_data(symbol)
+    activate StockData
+    note right #LightYellow: stock_data.py\n限售解禁、大股东减持、重要事件
+    StockData --> App : risk_data
+    deactivate StockData
+end
+
+== 8. 初始化AI分析系统 (55%) ==
+
+App -> App : 获取分析师配置
+note right #LightBlue: app.py\n从session_state获取启用状态\n技术面、基本面、资金流、风险、情绪、新闻
+
+App -> Agents : StockAnalysisAgents(model)
+activate Agents
+note right #LightPink: ai_agents.py\n创建AI分析智能体实例
+
+App -> DeepSeek : DeepSeekClient(model)
+activate DeepSeek
+note right #Orange: deepseek_client.py\n初始化OpenAI兼容客户端\n设置api_key和base_url
+
+DeepSeek --> Agents : client实例
+Agents --> App : agents实例
+
+== 9. 多智能体并行分析 (55-75%) ==
+
+App -> Agents : run_multi_agent_analysis(...)
+note right #LightPink: ai_agents.py\n传入所有数据和分析师配置
+
+' ===== 9.1 技术面分析师 =====
+alt 启用技术面分析
+    Agents -> Agents : technical_analyst_agent()
+    note right #LightPink: ai_agents.py\n调用技术分析师方法
+    
+    Agents -> DeepSeek : technical_analysis(stock_info, stock_data, indicators)
+    activate DeepSeek
+    
+    DeepSeek -> DeepSeek : 构建技术面分析提示词
+    note right #Orange: deepseek_client.py\n构建prompt:\nK线形态、均线系统\nRSI、MACD、布林带\n成交量、量比等
+    
+    DeepSeek -> DeepSeek : call_api(messages)
+    note right #Orange: deepseek_client.py\n调用OpenAI兼容API\ntemperature=0.7\nmax_tokens=2000
+    
+    DeepSeek -> API : POST /chat/completions
+    activate API
+    API --> DeepSeek : response.choices[0].message.content
+    deactivate API
+    
+    DeepSeek --> Agents : 技术面分析报告
+    deactivate DeepSeek
+    
+    Agents --> Agents : 返回技术分析师结果
+    note right #LightPink: ai_agents.py\n返回dict:\nagent_name, analysis\nfocus_areas, timestamp
+end
+
+' ===== 9.2 基本面分析师 =====
+alt 启用基本面分析
+    Agents -> Agents : fundamental_analyst_agent()
+    note right #LightPink: ai_agents.py\n调用基本面分析师方法
+    
+    Agents -> DeepSeek : fundamental_analysis(stock_info, financial_data, quarterly_data)
+    activate DeepSeek
+    
+    DeepSeek -> DeepSeek : 构建基本面分析提示词
+    note right #Orange: deepseek_client.py\n构建prompt:\n财务指标、季报数据\n估值分析(PE/PB)\nROE/ROA、成长性\n8期季报趋势分析
+    
+    DeepSeek -> DeepSeek : call_api(messages)
+    note right #Orange: deepseek_client.py\n调用OpenAI兼容API
+    
+    DeepSeek -> API : POST /chat/completions
+    activate API
+    API --> DeepSeek : response.content
+    deactivate API
+    
+    DeepSeek --> Agents : 基本面分析报告
+    deactivate DeepSeek
+    
+    Agents --> Agents : 返回基本面分析师结果
+end
+
+' ===== 9.3 资金面分析师 =====
+alt 启用资金面分析
+    Agents -> Agents : fund_flow_analyst_agent()
+    note right #LightPink: ai_agents.py\n调用资金面分析师方法
+    
+    Agents -> DeepSeek : fund_flow_analysis(stock_info, indicators, fund_flow_data)
+    activate DeepSeek
+    
+    DeepSeek -> DeepSeek : 构建资金面分析提示词
+    note right #Orange: deepseek_client.py\n构建prompt:\n近20日资金流向数据\n主力/超大单/大单行为\n散户资金动向\n量价配合分析
+    
+    DeepSeek -> DeepSeek : call_api(messages, max_tokens=3000)
+    note right #Orange: deepseek_client.py\n调用OpenAI兼容API\nmax_tokens=3000
+    
+    DeepSeek -> API : POST /chat/completions
+    activate API
+    API --> DeepSeek : response.content
+    deactivate API
+    
+    DeepSeek --> Agents : 资金面分析报告
+    deactivate DeepSeek
+    
+    Agents --> Agents : 返回资金面分析师结果
+end
+
+' ===== 9.4 风险管理师 =====
+alt 启用风险管理
+    Agents -> Agents : risk_management_agent()
+    note right #LightPink: ai_agents.py\n调用风险管理师方法
+    
+    Agents -> Agents : 构建风险管理提示词
+    note right #LightPink: ai_agents.py\n构建risk_prompt:\n限售解禁风险\n减持风险、重要事件\n11个风险维度分析\n风险控制建议
+    
+    Agents -> DeepSeek : call_api(messages, max_tokens=6000)
+    activate DeepSeek
+    note right #Orange: deepseek_client.py\n直接调用call_api\nmax_tokens=6000
+    
+    DeepSeek -> API : POST /chat/completions
+    activate API
+    API --> DeepSeek : response.content
+    deactivate API
+    
+    DeepSeek --> Agents : 风险评估报告
+    deactivate DeepSeek
+    
+    Agents --> Agents : 返回风险管理师结果
+end
+
+' ===== 9.5 市场情绪分析师 =====
+alt 启用情绪分析
+    Agents -> Agents : market_sentiment_agent()
+    note right #LightPink: ai_agents.py\n调用市场情绪分析师方法
+    
+    Agents -> Agents : 构建市场情绪提示词
+    note right #LightPink: ai_agents.py\n构建sentiment_prompt:\nARBR指标分析\n换手率、涨跌停\n恐慌贪婪指数\n资金情绪
+    
+    Agents -> DeepSeek : call_api(messages, max_tokens=4000)
+    activate DeepSeek
+    note right #Orange: deepseek_client.py\n直接调用call_api\nmax_tokens=4000
+    
+    DeepSeek -> API : POST /chat/completions
+    activate API
+    API --> DeepSeek : response.content
+    deactivate API
+    
+    DeepSeek --> Agents : 市场情绪分析报告
+    deactivate DeepSeek
+    
+    Agents --> Agents : 返回市场情绪分析师结果
+end
+
+' ===== 9.6 新闻分析师 =====
+alt 启用新闻分析
+    Agents -> Agents : news_analyst_agent()
+    note right #LightPink: ai_agents.py\n调用新闻分析师方法
+    
+    Agents -> Agents : 构建新闻分析提示词
+    note right #LightPink: ai_agents.py\n构建news_prompt:\n最新新闻数据\n新闻性质分析\n影响评估\n热点识别
+    
+    Agents -> DeepSeek : call_api(messages, max_tokens=4000)
+    activate DeepSeek
+    note right #Orange: deepseek_client.py\n直接调用call_api\nmax_tokens=4000
+    
+    DeepSeek -> API : POST /chat/completions
+    activate API
+    API --> DeepSeek : response.content
+    deactivate API
+    
+    DeepSeek --> Agents : 新闻分析报告
+    deactivate DeepSeek
+    
+    Agents --> Agents : 返回新闻分析师结果
+end
+
+Agents --> App : agents_results
+App -> UI : display_agents_analysis(agents_results)
+
+== 10. 团队讨论 (88%) ==
+
+App -> Agents : conduct_team_discussion(agents_results, stock_info)
+activate Agents
+
+Agents -> Agents : 收集参与分析的分析师名单和报告
+note right #LightPink: ai_agents.py\n收集technical/fundamental\nfund_flow/risk/sentiment/news\n各分析师报告
+
+Agents -> Agents : 构建团队讨论提示词
+note right #LightPink: ai_agents.py\n构建discussion_prompt:\n汇总所有分析师报告\n模拟投资决策会议讨论\n观点一致性和分歧\n风险收益评估\n策略制定思路
+
+Agents -> DeepSeek : call_api(messages, max_tokens=6000)
+activate DeepSeek
+note right #Orange: deepseek_client.py\n直接调用call_api\nmax_tokens=6000
+
+DeepSeek -> API : POST /chat/completions
+activate API
+API --> DeepSeek : 团队讨论内容
+deactivate API
+
+DeepSeek --> Agents : discussion_result
+deactivate DeepSeek
+
+Agents --> App : 团队讨论结果
+deactivate Agents
+
+App -> UI : display_team_discussion(discussion_result)
+
+== 11. 最终决策 (88-100%) ==
+
+App -> Agents : make_final_decision(discussion_result, stock_info, indicators)
+activate Agents
+
+Agents -> DeepSeek : final_decision(discussion_result, stock_info, indicators)
+activate DeepSeek
+
+DeepSeek -> DeepSeek : 构建最终决策提示词
+note right #Orange: deepseek_client.py\n构建prompt:\n包含讨论结果和技术指标\n要求JSON格式输出\n投资评级、目标价位\n止盈止损、仓位建议
+
+DeepSeek -> DeepSeek : call_api(messages, temperature=0.3, max_tokens=4000)
+note right #Orange: deepseek_client.py\ntemperature=0.3确保输出稳定\nmax_tokens=4000
+
+DeepSeek -> API : POST /chat/completions
+activate API
+API --> DeepSeek : 最终决策JSON
+deactivate API
+
+DeepSeek -> DeepSeek : 解析JSON响应
+note right #Orange: deepseek_client.py\n使用正则提取JSON\njson.loads解析为字典\n返回decision dict
+
+DeepSeek --> Agents : final_decision (dict)
+deactivate DeepSeek
+
+Agents --> App : 最终投资决策
+deactivate Agents
+
+App -> UI : display_final_decision(final_decision, ...)
+note right #LightBlue: app.py\n显示推荐等级、仓位建议\n风险提示、投资理由
+
+== 12. 保存结果 ==
+
+App -> App : 保存到 session_state
+note right #LightBlue: app.py\n缓存分析结果
+
+App -> DB : db.save_analysis(...)
+activate DB
+note right #LightSteelBlue: database.py\n持久化到SQLite数据库
+DB --> App : 保存成功
+deactivate DB
+
+App -> UI : st.success("分析完成")
+
+deactivate App
+
+@enduml

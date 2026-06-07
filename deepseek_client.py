@@ -2,6 +2,7 @@ import openai
 import json
 from typing import Dict, List, Any, Optional
 import config
+import log_utils
 
 class DeepSeekClient:
     """DeepSeek API客户端"""
@@ -12,6 +13,8 @@ class DeepSeekClient:
             api_key=config.DEEPSEEK_API_KEY,
             base_url=config.DEEPSEEK_BASE_URL
         )
+        self.logger = log_utils.get_logger(__name__)
+        self.logger.debug(f"DeepSeek API客户端初始化，模型: {self.model}")
         
     def call_api(self, messages: List[Dict[str, str]], model: Optional[str] = None, 
                  temperature: float = 0.7, max_tokens: int = 2000) -> str:
@@ -88,7 +91,7 @@ class DeepSeekClient:
 
 请给出专业、详细的技术分析报告，包含风险提示。
 """
-        
+        self.logger.info(f"技术面分析提示:\n {prompt}")
         messages = [
             {"role": "system", "content": "你是一名经验丰富的股票技术分析师，具有深厚的技术分析功底。"},
             {"role": "user", "content": prompt}
@@ -229,7 +232,7 @@ class DeepSeekClient:
 
 请给出专业、详细的基本面分析报告。
 """
-        
+        self.logger.info(f"基本面分析提示:\n {prompt}")
         messages = [
             {"role": "system", "content": "你是一名经验丰富的股票基本面分析师，擅长公司财务分析和行业研究。"},
             {"role": "user", "content": prompt}
@@ -344,6 +347,7 @@ class DeepSeekClient:
 请给出专业、详细、有深度的资金面分析报告。记住：要基于问财数据的实际内容进行分析，而不是假设！
 """
         
+        self.logger.info(f"资金面分析提示:\n {prompt}")
         messages = [
             {"role": "system", "content": "你是一名经验丰富的资金面分析师，擅长市场资金流向和主力行为分析，能够深入解读资金数据背后的投资逻辑。"},
             {"role": "user", "content": prompt}
@@ -435,13 +439,14 @@ class DeepSeekClient:
     "confidence_level": "信心度(1-10分)"
 }}
 """
-        
+        self.logger.info(f"最终投资决策提示:\n {prompt}")
         messages = [
             {"role": "system", "content": "你是一名专业的投资决策专家，需要给出明确、可执行的投资建议。"},
             {"role": "user", "content": prompt}
         ]
         
         response = self.call_api(messages, temperature=0.3, max_tokens=4000)
+        self.logger.info(f"最终投资决策响应:\n {response}")
         
         try:
             # 尝试解析JSON响应

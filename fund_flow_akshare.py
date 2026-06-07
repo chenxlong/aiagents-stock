@@ -10,6 +10,7 @@ import warnings
 from datetime import datetime, timedelta
 import akshare as ak
 from data_source_manager import data_source_manager
+import log_utils
 
 warnings.filterwarnings('ignore')
 
@@ -38,7 +39,8 @@ class FundFlowAkshareDataFetcher:
     def __init__(self):
         self.days = 30  # 获取最近30个交易日
         self.available = True
-        print("[OK] 资金流向数据获取器初始化成功（akshare数据源）")
+        self.logger = log_utils.get_logger(__name__)
+        self.logger.info("[OK] 资金流向数据获取器初始化成功（akshare数据源）")
     
     def get_fund_flow_data(self, symbol):
         """
@@ -50,6 +52,8 @@ class FundFlowAkshareDataFetcher:
         Returns:
             dict: 包含资金流向数据的字典
         """
+        self.logger.debug(f"[资金流向] 正在获取 {symbol} 的资金流向数据...")
+
         data = {
             "symbol": symbol,
             "fund_flow_data": None,
@@ -63,7 +67,7 @@ class FundFlowAkshareDataFetcher:
             return data
         
         try:
-            print(f"[资金流向] 正在获取 {symbol} 的资金流向数据...")
+            self.logger.info(f"[资金流向] 正在获取 {symbol} 的资金流向数据...")
             
             # 确定市场
             market = self._get_market(symbol)
@@ -110,17 +114,18 @@ class FundFlowAkshareDataFetcher:
         """获取个股资金流向数据（支持akshare和tushare自动切换）"""
         try:
             # 优先使用akshare的stock_individual_fund_flow接口
-            print(f"   [Akshare] 正在获取资金流向 (市场: {market})...")
+            self.logger.info(f"   [Akshare] 正在获取资金流向 (市场: {market})...")
             
             df = ak.stock_individual_fund_flow(stock=symbol, market=market)
+            self.logger.debug(f"   [Akshare] -资金流向原始数据: {df}")
             
             if df is None or df.empty:
-                print(f"   [Akshare] 未找到资金流向数据，尝试备用数据源...")
+                self.logger.info(f"   [Akshare] 未找到资金流向数据，尝试备用数据源...")
                 
                 # akshare失败，尝试tushare
                 if data_source_manager.tushare_available:
                     try:
-                        print(f"   [Tushare] 正在获取资金流向数据（备用数据源）...")
+                        self.logger.info(f"   [Tushare] 正在获取资金流向数据（备用数据源）...")
                         ts_code = data_source_manager._convert_to_ts_code(symbol)
                         
                         # 计算日期范围（最近N个交易日）
@@ -133,6 +138,7 @@ class FundFlowAkshareDataFetcher:
                             start_date=start_date,
                             end_date=end_date
                         )
+                        self.logger.info(f"   [Tushare] -资金流向原始数据: {df}")
                         
                         if df is not None and not df.empty:
                             # 标准化列名以匹配akshare格式
@@ -151,12 +157,12 @@ class FundFlowAkshareDataFetcher:
                             
                             # 限制为最近N天
                             df = df.head(self.days)
-                            print(f"   [Tushare] ✅ 成功获取 {len(df)} 条资金流向数据")
+                            self.logger.info(f"   [Tushare] ✅ 成功获取 {len(df)} 条资金流向数据")
                         else:
-                            print(f"   [Tushare] ❌ 未找到资金流向数据")
+                            self.logger.warning(f"   [Tushare] ❌ 未找到资金流向数据")
                             return None
                     except Exception as te:
-                        print(f"   [Tushare] ❌ 获取失败: {te}")
+                        self.logger.error(f"   [Tushare] ❌ 获取失败: {te}")
                         return None
                 else:
                     return None
@@ -195,7 +201,7 @@ class FundFlowAkshareDataFetcher:
             }
             
         except Exception as e:
-            print(f"   获取资金流向数据异常: {e}")
+            self.logger.error(f"   获取资金流向数据异常: {e}")
             import traceback
             traceback.print_exc()
             return None
@@ -204,6 +210,8 @@ class FundFlowAkshareDataFetcher:
         """
         将资金流向数据格式化为适合AI阅读的文本
         """
+        self.logger.debug(f"   [Akshare] -格式化资金流向数据: {data}")
+        
         if not data or not data.get("data_success"):
             return "未能获取资金流向数据"
         

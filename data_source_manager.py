@@ -50,6 +50,7 @@ class DataSourceManager:
         Returns:
             DataFrame: 包含日期、开盘、收盘、最高、最低、成交量等列
         """
+        self.logger.debug(f"开始获取股票 {symbol} 的历史数据")
         # 标准化日期格式
         if start_date:
             start_date = start_date.replace('-', '')
@@ -70,6 +71,7 @@ class DataSourceManager:
                 end_date=end_date,
                 adjust=adjust
             )
+            self.logger.info(f"[Akshare] 获取到 {symbol} 的历史数据:\n {df} ")
             
             if df is not None and not df.empty:
                 # 标准化列名
@@ -115,6 +117,7 @@ class DataSourceManager:
                     end_date=end_date,
                     adj=adj
                 )
+                self.logger.info(f"[Tushare] 获取到 {symbol} 的历史数据:\n {df} ")
                 
                 if df is not None and not df.empty:
                     # 标准化列名和数据格式
@@ -150,11 +153,15 @@ class DataSourceManager:
         Returns:
             dict: 股票基本信息
         """
+        self.logger.debug(f"开始获取股票 {symbol} 的基本信息")
         info = {
             "symbol": symbol,
             "name": "未知",
             "industry": "未知",
-            "market": "未知"
+            "market": "未知",
+            "list_date": "未知",
+            "market_cap": "未知",
+            "circulating_market_cap": "未知"
         }
         
         # 优先使用akshare
@@ -163,6 +170,8 @@ class DataSourceManager:
             self.logger.info(f"[Akshare] 正在获取 {symbol} 的基本信息...")
             
             stock_info = ak.stock_individual_info_em(symbol=symbol)
+            self.logger.info(f"[Akshare] 获取到基本信息:\n {stock_info} ")
+
             if stock_info is not None and not stock_info.empty:
                 for _, row in stock_info.iterrows():
                     key = row['item']
@@ -194,6 +203,7 @@ class DataSourceManager:
                     ts_code=ts_code,
                     fields='ts_code,name,area,industry,market,list_date'
                 )
+                self.logger.info(f"[Tushare] 获取到基本信息:\n {df} ")
                 
                 if df is not None and not df.empty:
                     info['name'] = df.iloc[0]['name']

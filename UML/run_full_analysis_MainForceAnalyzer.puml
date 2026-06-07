@@ -1,0 +1,233 @@
+@startuml run_full_analysis_MainForceAnalyzer
+title MainForceAnalyzer.run_full_analysis 函数调用时序图
+
+actor User
+
+' ===== 参与者声明（仅文件名）=====
+participant "main_force_ui.py" as UI #LightBlue
+participant "main_force_analysis.py\nMainForceAnalyzer" as Analyzer #LightPink
+participant "main_force_selector.py\nmain_force_selector" as Selector #LightYellow
+participant "ai_agents.py\nStockAnalysisAgents" as Agents #LightGray
+participant "deepseek_client.py\nDeepSeekClient" as DeepSeek #Orange
+participant "DeepSeek API" as API #Red
+
+== 初始化阶段 ==
+
+User -> UI : 点击"开始主力选股"按钮
+activate UI
+note right #LightBlue: main_force_ui.py\n用户输入参数:\nstart_date, days_ago\nfinal_n, max_change\nmin_cap, max_cap
+
+UI -> Analyzer : MainForceAnalyzer(model)
+activate Analyzer
+note right #LightPink: main_force_analysis.py\n创建主力选股分析器实例
+
+Analyzer -> Selector : self.selector = main_force_selector
+note right #LightYellow: main_force_selector.py\n初始化股票选择器
+
+Analyzer -> Agents : StockAnalysisAgents(model)
+activate Agents
+note right #LightGray: ai_agents.py\n创建AI分析智能体
+
+Agents -> DeepSeek : DeepSeekClient(model)
+activate DeepSeek
+note right #Orange: deepseek_client.py\n初始化DeepSeek API客户端
+
+DeepSeek --> Agents : client实例
+Agents --> Analyzer : agents实例
+deactivate Agents
+
+Analyzer --> UI : analyzer实例
+
+== 步骤1: 获取主力资金股票数据 ==
+
+UI -> Analyzer : run_full_analysis(start_date, days_ago, final_n, ...)
+activate Analyzer
+note right #LightPink: main_force_analysis.py\n开始完整分析流程
+
+Analyzer -> Analyzer : 构建start_date（如果需要）
+note right #LightPink: main_force_analysis.py\n如果未提供start_date\n根据days_ago计算日期
+
+Analyzer -> Selector : get_main_force_stocks(start_date, days_ago, min_cap, max_cap)
+activate Selector
+note right #LightYellow: main_force_selector.py\n获取主力资金净流入\n前100名股票\n使用问财(pywencai)查询
+
+Selector --> Analyzer : (success, raw_data, message)
+deactivate Selector
+
+alt 获取失败
+    Analyzer --> UI : 返回错误结果
+    UI -> UI : 显示错误信息
+end
+
+Analyzer -> Analyzer : result['total_stocks'] = len(raw_data)
+note right #LightPink: main_force_analysis.py\n记录获取股票总数
+
+== 步骤2: 智能筛选 ==
+
+Analyzer -> Selector : filter_stocks(raw_data, max_change, min_cap, max_cap)
+activate Selector
+note right #LightYellow: main_force_selector.py\n筛选条件:\n- 涨跌幅限制\n- 市值范围\n- 其他过滤条件
+
+Selector --> Analyzer : filtered_data (DataFrame)
+deactivate Selector
+
+Analyzer -> Analyzer : result['filtered_stocks'] = len(filtered_data)
+note right #LightPink: main_force_analysis.py\n记录筛选后股票数量
+
+alt 筛选后无股票
+    Analyzer --> UI : 返回空结果
+end
+
+Analyzer -> Analyzer : self.raw_stocks = filtered_data
+note right #LightPink: main_force_analysis.py\n保存原始筛选数据
+
+== 步骤3: 准备整体数据摘要 ==
+
+Analyzer -> Analyzer : _prepare_overall_summary(filtered_data)
+activate Analyzer
+note right #LightPink: main_force_analysis.py\n准备整体数据摘要:\n- 候选股票总数\n- 主力资金总净流入\n- 平均涨跌幅\n- 行业分布
+
+Analyzer -> Analyzer : 统计主力资金、涨跌幅、行业分布
+note right #LightPink: main_force_analysis.py\n计算:\n- 总净流入金额\n- 平均涨跌幅\n- 涨跌幅范围\n- Top10行业分布
+
+Analyzer --> Analyzer : overall_summary (str)
+deactivate Analyzer
+
+== 步骤4: 资金流向整体分析 ==
+
+Analyzer -> Analyzer : _fund_flow_overall_analysis(filtered_data, overall_summary)
+activate Analyzer
+
+Analyzer -> Analyzer : _prepare_data_table(df, focus='fund_flow')
+note right #LightPink: main_force_analysis.py\n准备资金流向数据表格\n选择关键列:\n股票代码、名称\n主力资金相关列\n涨跌幅列
+
+Analyzer -> Analyzer : 构建资金流向分析提示词
+note right #LightPink: main_force_analysis.py\n构建prompt:\n- 整体数据摘要\n- 候选股票详细数据\n- 分析任务:\n  * 资金流向特征\n  * 优质标的识别\n  * 板块热点判断\n  * 投资建议
+
+Analyzer -> DeepSeek : call_api(messages, max_tokens=4000)
+activate DeepSeek
+note right #Orange: deepseek_client.py\n调用DeepSeek API\nmax_tokens=4000
+
+DeepSeek -> API : POST /chat/completions
+activate API
+API --> DeepSeek : response.content
+deactivate API
+
+DeepSeek --> Analyzer : 资金流向分析报告
+deactivate DeepSeek
+
+Analyzer --> Analyzer : fund_flow_analysis
+deactivate Analyzer
+note right #LightPink: main_force_analysis.py\n保存到self.fund_flow_analysis
+
+== 步骤5: 行业板块整体分析 ==
+
+Analyzer -> Analyzer : _industry_overall_analysis(filtered_data, overall_summary)
+activate Analyzer
+
+Analyzer -> Analyzer : _prepare_data_table(df, focus='industry')
+note right #LightPink: main_force_analysis.py\n准备行业板块数据表格\n选择关键列:\n股票代码、名称\n行业列\n涨跌幅列
+
+Analyzer -> Analyzer : 构建行业板块分析提示词
+note right #LightPink: main_force_analysis.py\n构建prompt:\n- 整体数据摘要\n- 候选股票详细数据\n- 分析任务:\n  * 热点板块识别\n  * 板块特征分析\n  * 行业前景评估\n  * 优质标的推荐
+
+Analyzer -> DeepSeek : call_api(messages, max_tokens=4000)
+activate DeepSeek
+note right #Orange: deepseek_client.py\n调用DeepSeek API\nmax_tokens=4000
+
+DeepSeek -> API : POST /chat/completions
+activate API
+API --> DeepSeek : response.content
+deactivate API
+
+DeepSeek --> Analyzer : 行业板块分析报告
+deactivate DeepSeek
+
+Analyzer --> Analyzer : industry_analysis
+deactivate Analyzer
+note right #LightPink: main_force_analysis.py\n保存到self.industry_analysis
+
+== 步骤6: 财务基本面整体分析 ==
+
+Analyzer -> Analyzer : _fundamental_overall_analysis(filtered_data, overall_summary)
+activate Analyzer
+
+Analyzer -> Analyzer : _prepare_data_table(df, focus='fundamental')
+note right #LightPink: main_force_analysis.py\n准备基本面数据表格\n选择关键列:\n股票代码、名称\n市盈率、市净率\n营收、净利润\n评分列
+
+Analyzer -> Analyzer : 构建财务基本面分析提示词
+note right #LightPink: main_force_analysis.py\n构建prompt:\n- 整体数据摘要\n- 候选股票详细数据\n- 分析任务:\n  * 财务质量评估\n  * 估值水平分析\n  * 成长性评估\n  * 优质标的筛选
+
+Analyzer -> DeepSeek : call_api(messages, max_tokens=4000)
+activate DeepSeek
+note right #Orange: deepseek_client.py\n调用DeepSeek API\nmax_tokens=4000
+
+DeepSeek -> API : POST /chat/completions
+activate API
+API --> DeepSeek : response.content
+deactivate API
+
+DeepSeek --> Analyzer : 财务基本面分析报告
+deactivate DeepSeek
+
+Analyzer --> Analyzer : fundamental_analysis
+deactivate Analyzer
+note right #LightPink: main_force_analysis.py\n保存到self.fundamental_analysis
+
+== 步骤7: 综合决策精选优质标的 ==
+
+Analyzer -> Analyzer : _select_best_stocks(filtered_data, fund_analysis, industry_analysis, fundamental_analysis, final_n)
+activate Analyzer
+
+Analyzer -> Analyzer : _prepare_data_table(df, focus='all')
+note right #LightPink: main_force_analysis.py\n准备完整数据表格\n包含所有关键列
+
+Analyzer -> Analyzer : 构建综合决策提示词
+note right #LightPink: main_force_analysis.py\n构建prompt:\n- 候选股票数据\n- 三位分析师观点\n- 筛选标准:\n  * 主力资金\n  * 涨幅适中\n  * 行业热点\n  * 基本面良好\n- 任务要求:\n  * 精选final_n只标的\n  * JSON格式输出
+
+Analyzer -> DeepSeek : call_api(messages, max_tokens=4000)
+activate DeepSeek
+note right #Orange: deepseek_client.py\n调用DeepSeek API\nmax_tokens=4000
+
+DeepSeek -> API : POST /chat/completions
+activate API
+API --> DeepSeek : JSON响应
+deactivate API
+
+DeepSeek --> Analyzer : response (JSON字符串)
+deactivate DeepSeek
+
+Analyzer -> Analyzer : 解析JSON响应
+note right #LightPink: main_force_analysis.py\n使用正则提取JSON\njson.loads解析\n提取recommendations列表
+
+Analyzer --> Analyzer : final_recommendations (List[Dict])
+deactivate Analyzer
+
+Analyzer -> Analyzer : _print_final_recommendations(final_recommendations)
+note right #LightPink: main_force_analysis.py\n打印最终推荐结果
+
+Analyzer -> Analyzer : result['final_recommendations'] = final_recommendations
+Analyzer -> Analyzer : result['success'] = True
+
+Analyzer --> UI : 返回result字典
+deactivate Analyzer
+
+== 显示结果 ==
+
+UI -> UI : st.session_state.main_force_result = result
+note right #LightBlue: main_force_ui.py\n保存结果到session_state
+
+UI -> UI : st.session_state.main_force_analyzer = analyzer
+note right #LightBlue: main_force_ui.py\n保存分析器实例
+
+alt 分析成功
+    UI -> UI : st.success("分析完成")
+    UI -> UI : st.rerun()
+    note right #LightBlue: main_force_ui.py\n刷新页面显示结果
+else 分析失败
+    UI -> UI : st.error("分析失败")
+end
+
+deactivate UI
+
+@enduml
