@@ -1200,9 +1200,9 @@ def run_stock_analysis(symbol, period):
         progress_bar.progress(10)
 
         stock_info, stock_data, indicators = get_stock_data(symbol, period)
-        logger.debug(f"获取到的股票数据\n: {stock_info}")
-        logger.debug(f"获取到的股票数据\n: {stock_data}")
-        logger.debug(f"获取到的股票指标数据\n: {indicators}")
+        logger.debug(f"获取到的股票数据:\n {stock_info}")
+        logger.debug(f"获取到的股票数据:\n {stock_data}")
+        logger.debug(f"获取到的股票指标数据:\n {indicators}")
 
 
         if "error" in stock_info:
@@ -1571,7 +1571,11 @@ def display_stock_chart(stock_data, stock_info):
         xaxis_title="日期",
         yaxis_title="价格",
         height=500,
-        showlegend=True
+        showlegend=True,
+        xaxis=dict(
+            tickformat="%Y/%m/%d",
+            tickfont=dict(size=10)
+        )
     )
 
     # 生成唯一的key
@@ -1592,7 +1596,11 @@ def display_stock_chart(stock_data, stock_info):
             title="成交量",
             xaxis_title="日期",
             yaxis_title="成交量",
-            height=200
+            height=500,
+            xaxis=dict(
+                tickformat="%Y/%m/%d",
+                tickfont=dict(size=10)
+            )
         )
 
         # 生成唯一的key

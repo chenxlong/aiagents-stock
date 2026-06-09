@@ -77,6 +77,7 @@ class DataSourceManager:
                 # 标准化列名
                 df = df.rename(columns={
                     '日期': 'date',
+                    '股票代码': 'symbol',
                     '开盘': 'open',
                     '收盘': 'close',
                     '最高': 'high',
@@ -157,6 +158,7 @@ class DataSourceManager:
         info = {
             "symbol": symbol,
             "name": "未知",
+            "current_price": "未知",
             "industry": "未知",
             "market": "未知",
             "list_date": "未知",
@@ -187,6 +189,12 @@ class DataSourceManager:
                         info['market_cap'] = value
                     elif key == '流通市值':
                         info['circulating_market_cap'] = value
+                    elif key == '最新':
+                         info['current_price'] = value
+                    # elif key == '总股本':
+                    #     info['Total_share_capital'] = value
+                    # elif key == '流通股':
+                    #     info['tradable_share_capital'] = value
                 
                 self.logger.info(f"[Akshare] ✅ 成功获取基本信息")
                 return info

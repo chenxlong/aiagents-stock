@@ -99,6 +99,7 @@ class StockDataFetcher:
             
             # 方法1: 尝试获取个股详细信息（akshare）
             try:
+                # todo 和上面 get_stock_basic_info 取得数据一样 ？？？
                 stock_info = ak.stock_individual_info_em(symbol=symbol)
                 self.logger.info(f"[Akshare] 获取到个股详细信息:\n {stock_info} ")
 
@@ -191,7 +192,7 @@ class StockDataFetcher:
             #     print(f"[Akshare] 获取实时数据失败: {e}")
             #     # 如果实时数据获取失败，尝试使用数据源管理器获取历史数据（支持tushare备用）
             try:
-                self.logger.info(f"[数据源管理器] 尝试获取历史价格数据...")
+                self.logger.info(f"[数据源管理器] 尝试获取30天历史价格数据...")
                 hist_data = self.data_source_manager.get_stock_hist_data(
                     symbol=symbol,
                     start_date=(datetime.now() - timedelta(days=30)).strftime('%Y%m%d'),
@@ -625,34 +626,34 @@ class StockDataFetcher:
         }
         
         try:
-            # 1. 获取资产负债表
+            # 1. 获取资产负债表  todo  stock_financial_abstract_ths 函数indicator参数使用不对（建议使用 按报告期，按单季度），应该按报告期、按年度、按单季度
             try:
-                balance_sheet = ak.stock_financial_abstract_ths(symbol=symbol, indicator="资产负债表")
+                balance_sheet = ak.stock_financial_debt_ths(symbol=symbol, indicator="按报告期")
                 self.logger.info(f"获取到 {symbol} 的资产负债表:\n {balance_sheet}")
                 if balance_sheet is not None and not balance_sheet.empty:
-                    financial_data["balance_sheet"] = balance_sheet.head(8).to_dict('records')
+                    financial_data["balance_sheet"] = balance_sheet.tail(8).to_dict('records')
             except Exception as e:
                 self.logger.error(f"获取资产负债表失败: {e}")
             
             # 2. 获取利润表
             try:
-                income_statement = ak.stock_financial_abstract_ths(symbol=symbol, indicator="利润表")
+                income_statement = ak.stock_financial_benefit_ths(symbol=symbol, indicator="按报告期")
                 self.logger.info(f"获取到 {symbol} 的利润表:\n {income_statement}")
                 if income_statement is not None and not income_statement.empty:
-                    financial_data["income_statement"] = income_statement.head(8).to_dict('records')
+                    financial_data["income_statement"] = income_statement.tail(8).to_dict('records')
             except Exception as e:
                 self.logger.error(f"获取利润表失败: {e}")
             
             # 3. 获取现金流量表
             try:
-                cash_flow = ak.stock_financial_abstract_ths(symbol=symbol, indicator="现金流量表")
+                cash_flow = ak.stock_financial_cash_ths(symbol=symbol, indicator="按报告期")
                 self.logger.info(f"获取到 {symbol} 的现金流量表:\n {cash_flow}")
                 if cash_flow is not None and not cash_flow.empty:
-                    financial_data["cash_flow"] = cash_flow.head(8).to_dict('records')
+                    financial_data["cash_flow"] = cash_flow.tail(8).to_dict('records')
             except Exception as e:
                 self.logger.error(f"获取现金流量表失败: {e}")
             
-            # 4. 获取主要财务指标
+            # 4. 获取主要财务指标 todo stock_financial_abstract_ths
             try:
                 financial_abstract = ak.stock_financial_abstract(symbol=symbol)
                 self.logger.info(f"获取到 {symbol} 的主要财务指标:\n {financial_abstract}")
