@@ -631,7 +631,7 @@ class StockDataFetcher:
                 balance_sheet = ak.stock_financial_debt_ths(symbol=symbol, indicator="按报告期")
                 self.logger.info(f"获取到 {symbol} 的资产负债表:\n {balance_sheet}")
                 if balance_sheet is not None and not balance_sheet.empty:
-                    financial_data["balance_sheet"] = balance_sheet.tail(8).to_dict('records')
+                    financial_data["balance_sheet"] = balance_sheet.head(8).to_dict('records')
             except Exception as e:
                 self.logger.error(f"获取资产负债表失败: {e}")
             
@@ -640,7 +640,7 @@ class StockDataFetcher:
                 income_statement = ak.stock_financial_benefit_ths(symbol=symbol, indicator="按报告期")
                 self.logger.info(f"获取到 {symbol} 的利润表:\n {income_statement}")
                 if income_statement is not None and not income_statement.empty:
-                    financial_data["income_statement"] = income_statement.tail(8).to_dict('records')
+                    financial_data["income_statement"] = income_statement.head(8).to_dict('records')
             except Exception as e:
                 self.logger.error(f"获取利润表失败: {e}")
             
@@ -649,13 +649,13 @@ class StockDataFetcher:
                 cash_flow = ak.stock_financial_cash_ths(symbol=symbol, indicator="按报告期")
                 self.logger.info(f"获取到 {symbol} 的现金流量表:\n {cash_flow}")
                 if cash_flow is not None and not cash_flow.empty:
-                    financial_data["cash_flow"] = cash_flow.tail(8).to_dict('records')
+                    financial_data["cash_flow"] = cash_flow.head(8).to_dict('records')
             except Exception as e:
                 self.logger.error(f"获取现金流量表失败: {e}")
             
-            # 4. 获取主要财务指标 todo stock_financial_abstract_ths
+            # 4. 获取主要财务指标 todo stock_financial_abstract_ths 替换了 stock_financial_abstract
             try:
-                financial_abstract = ak.stock_financial_abstract(symbol=symbol)
+                financial_abstract = ak.stock_financial_abstract(symbol=symbol, indicator="按报告期")
                 self.logger.info(f"获取到 {symbol} 的主要财务指标:\n {financial_abstract}")
                 if financial_abstract is not None and not financial_abstract.empty:
                     # 提取关键财务指标
