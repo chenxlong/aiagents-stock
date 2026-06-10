@@ -111,27 +111,17 @@ class StockDataFetcher:
                         if key == '股票简称':
                             info['name'] = value
                         elif key == '总市值':
-                            try:
-                                if value and value != '-':
-                                    info['market_cap'] = float(value)
-                            except:
-                                pass
-                        elif key == '市盈率-动态':
-                            try:
-                                if value and value != '-':
-                                    pe_value = float(value)
-                                    if 0 < pe_value <= 1000:
-                                        info['pe_ratio'] = pe_value
-                            except:
-                                pass
-                        elif key == '市净率':
-                            try:
-                                if value and value != '-':
-                                    pb_value = float(value)
-                                    if 0 < pb_value <= 100:
-                                        info['pb_ratio'] = pb_value
-                            except:
-                                pass
+                            info['market_cap'] = value
+                        elif key == '流通市值':
+                            info['circulating_market_cap'] = value
+                        elif key == '最新':
+                            info['current_price'] = value
+                        elif key == '总股本':
+                            info['Total_share_capital'] = value
+                        elif key == '流通股':
+                            info['tradable_share_capital'] = value
+                        elif key == '上市时间':
+                            info['list_date'] = value
             except Exception as e:
                 self.logger.warning(f"[Akshare] 获取个股详细信息失败: {e}")
                 # 如果akshare失败，尝试从tushare获取
@@ -655,7 +645,7 @@ class StockDataFetcher:
             
             # 4. 获取主要财务指标 todo stock_financial_abstract_ths 替换了 stock_financial_abstract
             try:
-                financial_abstract = ak.stock_financial_abstract(symbol=symbol, indicator="按报告期")
+                financial_abstract = ak.stock_financial_abstract(symbol=symbol)
                 self.logger.info(f"获取到 {symbol} 的主要财务指标:\n {financial_abstract}")
                 if financial_abstract is not None and not financial_abstract.empty:
                     # 提取关键财务指标

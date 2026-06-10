@@ -341,9 +341,11 @@ class MarketSentimentDataFetcher:
         """获取换手率数据（支持akshare和tushare自动切换）"""
         try:
             # 优先使用akshare获取最近的换手率数据
-            print(f"   [Akshare] 正在获取换手率数据...")
+            self.logger.debug(f"   [Akshare] 正在获取换手率数据...")
             # 获取A股实时行情数据（不需要参数）
             df = ak.stock_zh_a_spot_em()
+            self.logger.debug(f"获取到实时行情数据:\n {df}")
+
             if df is not None and not df.empty:
                 stock_data = df[df['代码'] == symbol]
                 if not stock_data.empty:
@@ -368,18 +370,18 @@ class MarketSentimentDataFetcher:
                         except:
                             pass
                     
-                    print(f"   [Akshare] ✅ 成功获取换手率: {turnover_rate}%")
+                    self.logger.info(f"   [Akshare] ✅ 成功获取换手率: {turnover_rate}%")
                     return {
                         "current_turnover_rate": turnover_rate,
                         "interpretation": interpretation
                     }
         except Exception as e:
-            print(f"   [Akshare] ❌ 获取换手率失败: {e}")
+            self.logger.error(f"   [Akshare] ❌ 获取换手率失败: {e}")
             
             # akshare失败，尝试tushare
             if data_source_manager.tushare_available:
                 try:
-                    print(f"   [Tushare] 正在获取换手率数据（备用数据源）...")
+                    self.logger.debug(f"   [Tushare] 正在获取换手率数据（备用数据源）...")
                     ts_code = data_source_manager._convert_to_ts_code(symbol)
                     
                     # 获取最近一个交易日的数据
@@ -387,6 +389,7 @@ class MarketSentimentDataFetcher:
                         ts_code=ts_code,
                         trade_date=datetime.now().strftime('%Y%m%d')
                     )
+                    self.logger.debug(f"获取到Tushare数据:\n {df}")
                     
                     if df is not None and not df.empty:
                         row = df.iloc[0]
@@ -410,13 +413,13 @@ class MarketSentimentDataFetcher:
                             except:
                                 pass
                         
-                        print(f"   [Tushare] ✅ 成功获取换手率: {turnover_rate}%")
+                        self.logger.info(f"   [Tushare] ✅ 成功获取换手率: {turnover_rate}%")
                         return {
                             "current_turnover_rate": turnover_rate,
                             "interpretation": interpretation
                         }
                 except Exception as te:
-                    print(f"   [Tushare] ❌ 获取失败: {te}")
+                    self.logger.error(f"   [Tushare] ❌ 获取失败: {te}")
         
         return None
     
@@ -424,7 +427,7 @@ class MarketSentimentDataFetcher:
         """获取大盘指数情绪（支持akshare和tushare自动切换）"""
         try:
             # 优先使用akshare获取上证指数实时数据
-            print(f"   [Akshare] 正在获取大盘指数数据...")
+            self.logger.debug(f"   [Akshare] 正在获取大盘指数数据...")
             # 使用正确的symbol参数
             df = ak.stock_zh_index_spot_em(symbol="上证系列指数")
             if df is not None and not df.empty:
@@ -458,7 +461,7 @@ class MarketSentimentDataFetcher:
                             else:
                                 sentiment = "市场情绪极度悲观"
                             
-                            print(f"   [Akshare] ✅ 成功获取大盘数据")
+                            self.logger.info(f"   [Akshare] ✅ 成功获取大盘数据")
                             return {
                                 "index_name": "上证指数",
                                 "change_percent": change_pct,
@@ -470,20 +473,20 @@ class MarketSentimentDataFetcher:
                                 "sentiment_interpretation": sentiment
                             }
                     except Exception as e:
-                        print(f"   [Akshare] 获取涨跌家数失败: {e}")
+                        self.logger.error(f"   [Akshare] 获取涨跌家数失败: {e}")
                     
-                    print(f"   [Akshare] ✅ 成功获取指数涨跌幅")
+                    self.logger.info(f"   [Akshare] ✅ 成功获取指数涨跌幅")
                     return {
                         "index_name": "上证指数",
                         "change_percent": change_pct
                     }
         except Exception as e:
-            print(f"   [Akshare] ❌ 获取大盘指数失败: {e}")
+            self.logger.error(f"   [Akshare] ❌ 获取大盘指数失败: {e}")
             
             # akshare失败，尝试tushare
             if data_source_manager.tushare_available:
                 try:
-                    print(f"   [Tushare] 正在获取大盘指数数据（备用数据源）...")
+                    self.logger.debug(f"   [Tushare] 正在获取大盘指数数据（备用数据源）...")
                     
                     # 获取上证指数数据
                     df = data_source_manager.tushare_api.index_daily(
@@ -496,19 +499,20 @@ class MarketSentimentDataFetcher:
                         row = df.iloc[0]
                         change_pct = row.get('pct_chg', 0)
                         
-                        print(f"   [Tushare] ✅ 成功获取大盘指数涨跌幅: {change_pct}%")
+                        self.logger.info(f"   [Tushare] ✅ 成功获取大盘指数涨跌幅: {change_pct}%")
                         return {
                             "index_name": "上证指数",
                             "change_percent": change_pct
                         }
                 except Exception as te:
-                    print(f"   [Tushare] ❌ 获取失败: {te}")
+                    self.logger.error(f"   [Tushare] ❌ 获取失败: {te}")
         
         return None
     
     def _get_limit_up_down_stats(self):
         """获取涨跌停统计数据"""
         try:
+            self.logger.info(f"   [Akshare] 正在获取涨跌停数据...")
             # 获取今日涨停和跌停统计
             today = datetime.now().strftime('%Y%m%d')
             
@@ -552,11 +556,12 @@ class MarketSentimentDataFetcher:
                 "date": today
             }
         except Exception as e:
-            print(f"获取涨跌停数据失败: {e}")
+            self.logger.error(f"获取涨跌停数据失败: {e}")
         return None
     
     def _get_margin_trading_data(self, symbol):
         """获取融资融券数据"""
+        self.logger.info(f"   [Akshare] 正在获取融资融券数据...")
         try:
             # 获取个股融资融券数据（尝试多个API）
             try:
@@ -604,7 +609,7 @@ class MarketSentimentDataFetcher:
                 pass
                 
         except Exception as e:
-            print(f"获取融资融券数据失败: {e}")
+            self.logger.error(f"获取融资融券数据失败: {e}")
         return None
     
     def _get_fear_greed_index(self):
@@ -660,7 +665,7 @@ class MarketSentimentDataFetcher:
                 "factors": factors
             }
         except Exception as e:
-            print(f"计算恐慌贪婪指数失败: {e}")
+            self.logger.error(f"计算恐慌贪婪指数失败: {e}")
         return None
     
     def format_sentiment_data_for_ai(self, sentiment_data):

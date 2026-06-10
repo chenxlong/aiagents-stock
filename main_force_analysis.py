@@ -254,7 +254,7 @@ class MainForceAnalyzer:
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
 
-        self.logger.debug(f"AI资金流向分析结果: {analysis}")
+        self.logger.debug(f"AI资金流向分析结果:\n {analysis}")
         self.logger.info("  ✅ 资金流向整体分析完成")
         time.sleep(1)
         
@@ -310,7 +310,7 @@ class MainForceAnalyzer:
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
         
-        self.logger.debug(f"AI行业板块分析结果: {analysis}")
+        self.logger.debug(f"AI行业板块分析结果:\n {analysis}")
         self.logger.info("  ✅ 行业板块整体分析完成")
         time.sleep(1)
         
@@ -364,9 +364,9 @@ class MainForceAnalyzer:
             {"role": "user", "content": prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
         
-        self.logger.debug(f"AI财务基本面分析结果: {analysis}")
+        self.logger.debug(f"AI财务基本面分析结果:\n {analysis}")
         self.logger.info("  ✅ 财务基本面整体分析完成")
         time.sleep(1)
         
@@ -514,7 +514,7 @@ class MainForceAnalyzer:
             ]
             
             response = self.deepseek_client.call_api(messages, max_tokens=4000)
-            self.logger.debug(f"AI综合分析结果: {response}")
+            self.logger.debug(f"AI综合分析结果:\n {response}")
             
             # 解析JSON响应
             import re

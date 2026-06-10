@@ -74,17 +74,18 @@ class FundFlowAkshareDataFetcher:
             
             # 获取资金流向数据
             fund_flow_data = self._get_individual_fund_flow(symbol, market)
+            self.logger.debug(f"获取到资金流向数据:\n {fund_flow_data}")
             
             if fund_flow_data:
                 data["fund_flow_data"] = fund_flow_data
-                print(f"   [OK] 成功获取 {len(fund_flow_data.get('data', []))} 个交易日的资金流向数据")
+                self.logger.info(f"   [OK] 成功获取 {len(fund_flow_data.get('data', []))} 个交易日的资金流向数据")
                 data["data_success"] = True
-                print("[完成] 资金流向数据获取完成")
+                self.logger.info("[完成] 资金流向数据获取完成")
             else:
-                print("[警告] 未能获取到资金流向数据")
+                self.logger.warning("[警告] 未能获取到资金流向数据")
                 
         except Exception as e:
-            print(f"[ERROR] 获取资金流向数据失败: {e}")
+            self.logger.error(f"[ERROR] 获取资金流向数据失败: {e}")
             data["error"] = str(e)
         
         return data

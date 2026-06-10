@@ -17,7 +17,7 @@ class DeepSeekClient:
         self.logger.debug(f"DeepSeek API客户端初始化，模型: {self.model}")
         
     def call_api(self, messages: List[Dict[str, str]], model: Optional[str] = None, 
-                 temperature: float = 0.7, max_tokens: int = 2000) -> str:
+                 temperature: float = 0.7, max_tokens: int = 8000) -> str:
         """调用DeepSeek API"""
         # 使用实例的模型，如果没有传入则使用默认模型
         model_to_use = model or self.model
@@ -162,7 +162,7 @@ class DeepSeekClient:
 - 股票名称：{stock_info.get('name', 'N/A')}
 - 当前价格：{stock_info.get('current_price', 'N/A')}
 - 市值：{stock_info.get('market_cap', 'N/A')}
-- 行业：{stock_info.get('sector', 'N/A')}
+- 行业：{stock_info.get('industry', 'N/A')}
 - 细分行业：{stock_info.get('industry', 'N/A')}
 
 【估值指标】

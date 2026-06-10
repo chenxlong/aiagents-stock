@@ -1200,9 +1200,9 @@ def run_stock_analysis(symbol, period):
         progress_bar.progress(10)
 
         stock_info, stock_data, indicators = get_stock_data(symbol, period)
-        logger.debug(f"获取到的股票数据:\n {stock_info}")
-        logger.debug(f"获取到的股票数据:\n {stock_data}")
-        logger.debug(f"获取到的股票指标数据:\n {indicators}")
+        logger.debug(f"获取到的股票基本数据:\n {stock_info}")
+        logger.debug(f"获取到的股票历史数据:\n {stock_data}")
+        logger.debug(f"获取到的最新股票指标数据:\n {indicators}")
 
 
         if "error" in stock_info:
@@ -1225,7 +1225,7 @@ def run_stock_analysis(symbol, period):
         status_text.text("📊 正在获取财务数据...")
         fetcher = StockDataFetcher()  # 创建fetcher实例
         financial_data = fetcher.get_financial_data(symbol)
-        logger.debug(f"获取到的财务数据\n: {financial_data}")
+        logger.debug(f"获取到的财务数据:\n {financial_data}")
         progress_bar.progress(35)
 
         # 2.5 获取季报数据（仅在选择了基本面分析师且为A股时）
@@ -1286,7 +1286,7 @@ def run_stock_analysis(symbol, period):
                 from market_sentiment_data import MarketSentimentDataFetcher
                 sentiment_fetcher = MarketSentimentDataFetcher()
                 sentiment_data = sentiment_fetcher.get_market_sentiment_data(symbol, stock_data)
-                logger.debug(f"获取到的市场情绪数据\n: {sentiment_data}")
+                logger.debug(f"获取到的市场情绪数据:\n {sentiment_data}")
                 if sentiment_data and sentiment_data.get('data_success'):
                     st.info("✅ 成功获取市场情绪数据（ARBR、换手率、涨跌停等）")
                 else:

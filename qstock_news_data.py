@@ -76,14 +76,14 @@ class QStockNewsDataFetcher:
             
             if news_data:
                 data["news_data"] = news_data
-                print(f"   ✓ 成功获取 {len(news_data.get('items', []))} 条新闻")
+                self.logger.info(f"   ✓ 成功获取 {len(news_data.get('items', []))} 条新闻")
                 data["data_success"] = True
-                print("✅ 新闻数据获取完成")
+                self.logger.info("✅ 新闻数据获取完成")
             else:
-                print("⚠️ 未能获取到新闻数据")
+                self.logger.warning("⚠️ 未能获取到新闻数据")
                 
         except Exception as e:
-            print(f"❌ 获取新闻数据失败: {e}")
+            self.logger.error(f"❌ 获取新闻数据失败: {e}")
             data["error"] = str(e)
         
         return data

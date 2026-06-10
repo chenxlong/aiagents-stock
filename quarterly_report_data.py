@@ -158,6 +158,7 @@ class QuarterlyReportDataFetcher:
         try:
             # stock_financial_report_sina - 新浪财经季度资产负债表
             df = ak.stock_financial_report_sina(stock=symbol, symbol="资产负债表")
+            self.logger.debug(f"获取到资产负债表数据:\n {df}")
             
             if df is None or df.empty:
                 self.logger.info(f"   未找到资产负债表数据")
@@ -197,6 +198,7 @@ class QuarterlyReportDataFetcher:
         try:
             # stock_financial_report_sina - 新浪财经季度现金流量表
             df = ak.stock_financial_report_sina(stock=symbol, symbol="现金流量表")
+            self.logger.debug(f"获取到现金流量表数据:\n {df}")
             
             if df is None or df.empty:
                 self.logger.info(f"   未找到现金流量表数据")
@@ -236,6 +238,7 @@ class QuarterlyReportDataFetcher:
         try:
             # 使用stock_financial_abstract替代已失效的stock_financial_analysis_indicator
             df = ak.stock_financial_abstract(symbol=symbol)
+            self.logger.debug(f"获取到财务指标数据:\n {df}")
             
             if df is None or df.empty:
                 self.logger.info(f"   未找到财务指标数据")
