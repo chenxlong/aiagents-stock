@@ -31,9 +31,7 @@ class LonghubangEngine:
         self.scoring = LonghubangScoring()
         # 初始化日志
         self.logger = log_utils.get_logger(__name__)
-        if not self.logger.handlers:
-            logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
-        self.logger.info("[智瞰龙虎] 分析引擎初始化完成")
+        self.logger.info(f"[智瞰龙虎] 综合分析引擎初始化完成, 数据库路径: {db_path}")
     
     def run_comprehensive_analysis(self, date=None, days=1) -> Dict[str, Any]:
         """
@@ -106,6 +104,7 @@ class LonghubangEngine:
             try:
                 if scoring_df is not None and hasattr(scoring_df, 'to_dict'):
                     scoring_ranking_data = scoring_df.to_dict('records')
+                    self.logger.info(f"评分结果: {scoring_ranking_data}")
                     self.logger.info(f"完成 {len(scoring_ranking_data)} 只股票的智能评分排名")
                 else:
                     self.logger.warning("评分结果为空或格式不支持转换")

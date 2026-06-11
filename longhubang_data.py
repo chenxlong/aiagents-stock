@@ -8,6 +8,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import time
 import warnings
+import log_utils
 
 warnings.filterwarnings('ignore')
 
@@ -22,7 +23,7 @@ class LonghubangDataFetcher:
         Args:
             api_key: StockAPI的API密钥（可选，普通请求每日免费1000次）
         """
-        print("[智瞰龙虎] 龙虎榜数据获取器初始化...")
+        self.logger = log_utils.get_logger(__name__)
         # self.base_url = "https://api-lhb.zhongdu.net"
         self.base_url = "http://lhb-api.ws4.cn/v1"
        # self.base_url = "https://www.stockapi.com.cn/v1"
@@ -30,6 +31,7 @@ class LonghubangDataFetcher:
         self.max_retries = 3  # 最大重试次数
         self.retry_delay = 2  # 重试延迟（秒）
         self.request_delay = 0.025  # 请求间隔（秒），40次/秒 = 0.025秒/次
+        self.logger.info("[智瞰龙虎] 龙虎榜数据获取类 LonghubangDataFetcher 初始化完成")
     
     def _safe_request(self, url, params=None):
         """
@@ -52,19 +54,20 @@ class LonghubangDataFetcher:
                 if response.status_code == 200:
                     data = response.json()
                     if data.get('code') == 20000:
+                        self.logger.info(f" ✓ 成功获取龙虎榜记录：\n {data['data']} ")
                         return data
                     else:
-                        print(f"    API返回错误: {data.get('msg', '未知错误')}")
+                        self.logger.error(f" ✗ API返回错误: {data.get('msg', '未知错误')}")
                         return None
                 else:
-                    print(f"    HTTP错误: {response.status_code}")
+                    self.logger.error(f" ✗ HTTP错误: {response.status_code}")
                     
             except Exception as e:
                 if attempt < self.max_retries - 1:
-                    print(f"    请求失败，{self.retry_delay}秒后重试... (尝试 {attempt + 1}/{self.max_retries})")
+                    self.logger.error(f" ✗ 请求失败，{self.retry_delay}秒后重试... (尝试 {attempt + 1}/{self.max_retries})")
                     time.sleep(self.retry_delay)
                 else:
-                    print(f"    请求失败，已达最大重试次数: {e}")
+                    self.logger.error(f" ✗ 请求失败，已达最大重试次数: {e}")
                     return None
         
         return None
@@ -79,7 +82,7 @@ class LonghubangDataFetcher:
         Returns:
             dict: 龙虎榜数据
         """
-        print(f"[智瞰龙虎] 获取 {date} 的龙虎榜数据...")
+        self.logger.info(f"[智瞰龙虎] 获取 {date} 的龙虎榜数据...")
         
         # url = f"{self.base_url}"
         url = f"{self.base_url}/youzi/all"
@@ -88,10 +91,10 @@ class LonghubangDataFetcher:
         result = self._safe_request(url, params)
         
         if result and result.get('data'):
-            print(f"    ✓ 成功获取 {len(result['data'])} 条龙虎榜记录")
+            self.logger.info(f" ✓ 成功获取 {len(result['data'])} 条龙虎榜记录")
             return result
         else:
-            print(f"    ✗ 未获取到数据")
+            self.logger.error(f" ✗ 未获取到数据")
             return None
     
     def get_longhubang_data_range(self, start_date, end_date):
@@ -105,7 +108,7 @@ class LonghubangDataFetcher:
         Returns:
             list: 龙虎榜数据列表
         """
-        print(f"[智瞰龙虎] 获取 {start_date} 至 {end_date} 的龙虎榜数据...")
+        self.logger.info(f"[智瞰龙虎] 获取 {start_date} 至 {end_date} 的龙虎榜数据...")
         
         all_data = []
         
@@ -125,7 +128,7 @@ class LonghubangDataFetcher:
             # 下一天
             current_date += timedelta(days=1)
         
-        print(f"[智瞰龙虎] ✓ 共获取 {len(all_data)} 条记录")
+        self.logger.info(f"[智瞰龙虎] ✓ 共获取 {len(all_data)} 条记录")
         return all_data
     
     def get_recent_days_data(self, days=5):

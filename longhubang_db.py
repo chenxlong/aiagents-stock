@@ -15,7 +15,7 @@ class LonghubangDatabase:
     
     def __init__(self, db_path='longhubang.db'):
         """
-        初始化数据库
+        初始化数据库管理类
         
         Args:
             db_path: 数据库文件路径
@@ -23,9 +23,8 @@ class LonghubangDatabase:
         self.db_path = db_path
         # 初始化日志
         self.logger = log_utils.get_logger(__name__)
-        if not self.logger.handlers:
-            logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
         self.init_database()
+        self.logger.info(f"龙虎榜数据库管理类初始化完成, 数据库路径: {self.db_path}")
     
     def get_connection(self):
         """获取数据库连接"""

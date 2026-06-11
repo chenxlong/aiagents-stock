@@ -7,6 +7,7 @@ from deepseek_client import DeepSeekClient
 from typing import Dict, Any, List
 import time
 import config
+import log_utils
 
 
 class LonghubangAgents:
@@ -15,7 +16,8 @@ class LonghubangAgents:
     def __init__(self, model=None):
         self.model = model or config.DEFAULT_MODEL_NAME
         self.deepseek_client = DeepSeekClient(model=self.model)
-        print(f"[智瞰龙虎] AI分析师系统初始化 (模型: {self.model})")
+        self.logger = log_utils.get_logger(__name__)
+        self.logger.info(f"[智瞰龙虎] AI分析师系统初始化 (模型: {self.model})")
     
     def youzi_behavior_analyst(self, longhubang_data: str, summary: Dict) -> Dict[str, Any]:
         """
@@ -26,7 +28,7 @@ class LonghubangAgents:
         - 分析游资席位的进出特征
         - 研判游资对个股的态度
         """
-        print("🎯 游资行为分析师正在分析...")
+        self.logger.info("🎯 游资行为分析师正在分析...")
         time.sleep(1)
         
         # 构建游资统计信息
@@ -97,7 +99,7 @@ class LonghubangAgents:
 
 请给出专业、实战性强的游资行为分析报告。
 """
-        
+        self.logger.debug(f"游资行为分析提示: {prompt}")
         messages = [
             {"role": "system", "content": "你是一名资深的游资研究专家，擅长从龙虎榜数据中洞察游资意图和操作手法。"},
             {"role": "user", "content": prompt}
@@ -105,7 +107,7 @@ class LonghubangAgents:
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
         
-        print("  ✓ 游资行为分析师分析完成")
+        self.logger.debug(f" ✓ 游资行为分析师分析完成, 结果:\n{analysis}")
         
         return {
             "agent_name": "游资行为分析师",
@@ -124,7 +126,7 @@ class LonghubangAgents:
         - 评估股票的上涨潜力
         - 识别次日大概率上涨的股票
         """
-        print("📈 个股潜力分析师正在分析...")
+        self.logger.info("📈 个股潜力分析师正在分析...")
         time.sleep(1)
         
         # 构建股票统计信息
@@ -198,7 +200,7 @@ class LonghubangAgents:
 
 请给出专业、实战、具有可操作性的个股潜力分析报告。务必重点分析次日大概率上涨的股票！
 """
-        
+        self.logger.debug(f"个股潜力分析提示: {prompt}")
         messages = [
             {"role": "system", "content": "你是一名资深的个股研究专家和短线交易高手，擅长从龙虎榜中挖掘短期爆发股。"},
             {"role": "user", "content": prompt}
@@ -206,7 +208,7 @@ class LonghubangAgents:
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
         
-        print("  ✓ 个股潜力分析师分析完成")
+        self.logger.debug(f" ✓ 个股潜力分析师分析完成, 结果:\n{analysis}")
         
         return {
             "agent_name": "个股潜力分析师",
@@ -225,7 +227,7 @@ class LonghubangAgents:
         - 分析题材的炒作周期
         - 预判题材的持续性
         """
-        print("🔥 题材追踪分析师正在分析...")
+        self.logger.info("🔥 题材追踪分析师正在分析...")
         time.sleep(1)
         
         # 构建概念统计信息
@@ -298,7 +300,7 @@ class LonghubangAgents:
 
 请给出专业、前瞻性强的题材追踪分析报告。
 """
-        
+        self.logger.debug(f"题材追踪分析提示: {prompt}")
         messages = [
             {"role": "system", "content": "你是一名资深的题材研究专家，擅长从龙虎榜数据中捕捉题材热点和投资机会。"},
             {"role": "user", "content": prompt}
@@ -306,7 +308,7 @@ class LonghubangAgents:
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
         
-        print("  ✓ 题材追踪分析师分析完成")
+        self.logger.debug(f" ✓ 题材追踪分析师分析完成, 结果:\n{analysis}")
         
         return {
             "agent_name": "题材追踪分析师",
@@ -325,7 +327,7 @@ class LonghubangAgents:
         - 分析游资出货信号
         - 提供风险管理建议
         """
-        print("⚠️ 风险控制专家正在分析...")
+        self.logger.info("⚠️ 风险控制专家正在分析...")
         time.sleep(1)
         
         prompt = f"""
@@ -393,7 +395,7 @@ class LonghubangAgents:
 
 请给出专业、严谨、保守的风险控制报告，宁可错过，不可做错。
 """
-        
+        self.logger.debug(f"风险控制分析提示: {prompt}")
         messages = [
             {"role": "system", "content": "你是一名资深的风险控制专家，擅长识别龙虎榜中的风险信号和资金陷阱。"},
             {"role": "user", "content": prompt}
@@ -401,7 +403,7 @@ class LonghubangAgents:
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
         
-        print("  ✓ 风险控制专家分析完成")
+        self.logger.debug(f" ✓ 风险控制专家分析完成, 结果:\n{analysis}")
         
         return {
             "agent_name": "风险控制专家",
@@ -420,7 +422,7 @@ class LonghubangAgents:
         - 给出最终推荐股票清单
         - 提供具体操作策略
         """
-        print("👔 首席策略师正在综合分析...")
+        self.logger.info("👔 首席策略师正在综合分析...")
         time.sleep(1)
         
         # 整合所有分析师的分析结果
@@ -488,7 +490,7 @@ class LonghubangAgents:
 
 请给出专业、全面、可执行的首席策略师综合报告。报告要有明确的结论和可操作性！
 """
-        
+        self.logger.debug(f"首席策略师分析提示: {prompt}")
         messages = [
             {"role": "system", "content": "你是一名资深的首席投资策略师，擅长综合多维度分析，给出最优投资决策。"},
             {"role": "user", "content": prompt}
@@ -496,7 +498,7 @@ class LonghubangAgents:
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=5000)
         
-        print("  ✓ 首席策略师分析完成")
+        self.logger.debug(f" ✓ 首席策略师分析完成, 结果:\n{analysis}")
         
         return {
             "agent_name": "首席策略师",

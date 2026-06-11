@@ -6,6 +6,7 @@
 import pandas as pd
 from typing import Dict, List
 from collections import Counter
+import log_utils
 
 
 class LonghubangScoring:
@@ -34,7 +35,8 @@ class LonghubangScoring:
             'QFII', 'RQFII', '券商', '信托'
         ]
         
-        print("[智瞰龙虎] 评分系统初始化完成")
+        self.logger = log_utils.get_logger(__name__)
+        self.logger.info("[智瞰龙虎] 股票智能评分系统初始化完成")
     
     def calculate_stock_score(self, stock_data: List[Dict]) -> float:
         """
