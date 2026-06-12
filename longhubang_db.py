@@ -24,7 +24,7 @@ class LonghubangDatabase:
         # 初始化日志
         self.logger = log_utils.get_logger(__name__)
         self.init_database()
-        self.logger.info(f"龙虎榜数据库管理类初始化完成, 数据库路径: {self.db_path}")
+        self.logger.info(f"[智瞰龙虎] 数据库管理类初始化完成, 数据库路径: {self.db_path}")
     
     def get_connection(self):
         """获取数据库连接"""
@@ -38,19 +38,19 @@ class LonghubangDatabase:
         # 龙虎榜原始数据表
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS longhubang_records (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT NOT NULL,
-            stock_code TEXT NOT NULL,
-            stock_name TEXT,
-            youzi_name TEXT,
-            yingye_bu TEXT,
-            list_type TEXT,
-            buy_amount REAL,
-            sell_amount REAL,
-            net_inflow REAL,
-            concepts TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(date, stock_code, youzi_name, yingye_bu)
+            id INTEGER PRIMARY KEY AUTOINCREMENT,  -- 主键ID，自增
+            date TEXT NOT NULL,                    -- 龙虎榜日期
+            stock_code TEXT NOT NULL,              -- 股票代码
+            stock_name TEXT,                       -- 股票名称
+            youzi_name TEXT,                       -- 游资名称（席位名称）
+            yingye_bu TEXT,                        -- 营业部名称
+            list_type TEXT,                        -- 上榜类型（如：日涨幅偏离值达7%的证券等）
+            buy_amount REAL,                       -- 买入金额（万元）
+            sell_amount REAL,                      -- 卖出金额（万元）
+            net_inflow REAL,                       -- 净流入金额（万元）
+            concepts TEXT,                         -- 所属概念板块（JSON格式）
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,  -- 记录创建时间
+            UNIQUE(date, stock_code, youzi_name, yingye_bu)  -- 唯一约束：日期+股票+游资+营业部唯一
         )
         ''')
         
@@ -71,33 +71,33 @@ class LonghubangDatabase:
         # AI分析报告表
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS longhubang_analysis (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            analysis_date TEXT NOT NULL,
-            data_date_range TEXT,
-            analysis_content TEXT,
-            recommended_stocks TEXT,
-            summary TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            id INTEGER PRIMARY KEY AUTOINCREMENT,  -- 主键ID，自增
+            analysis_date TEXT NOT NULL,           -- 分析报告生成日期
+            data_date_range TEXT,                  -- 分析数据的日期范围（如：2024-01-01至2024-01-05）
+            analysis_content TEXT,                 -- AI分析内容（详细分析报告）
+            recommended_stocks TEXT,               -- 推荐股票列表（JSON格式）
+            summary TEXT,                          -- 分析摘要
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP  -- 记录创建时间
         )
         ''')
         
         # 股票追踪表（记录推荐股票的后续表现）
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS stock_tracking (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            analysis_id INTEGER,
-            stock_code TEXT NOT NULL,
-            stock_name TEXT,
-            recommended_date TEXT,
-            recommended_price REAL,
-            target_price REAL,
-            stop_loss_price REAL,
-            current_price REAL,
-            profit_loss_pct REAL,
-            status TEXT,
-            notes TEXT,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(analysis_id) REFERENCES longhubang_analysis(id)
+            id INTEGER PRIMARY KEY AUTOINCREMENT,  -- 主键ID，自增
+            analysis_id INTEGER,                   -- 关联的分析报告ID（外键）
+            stock_code TEXT NOT NULL,              -- 股票代码
+            stock_name TEXT,                       -- 股票名称
+            recommended_date TEXT,                 -- 推荐日期
+            recommended_price REAL,                -- 推荐时价格
+            target_price REAL,                     -- 目标价格
+            stop_loss_price REAL,                  -- 止损价格
+            current_price REAL,                    -- 当前价格
+            profit_loss_pct REAL,                  -- 盈亏百分比
+            status TEXT,                           -- 跟踪状态（如：持有、已卖出、止损）
+            notes TEXT,                            -- 备注信息
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,  -- 记录更新时间
+            FOREIGN KEY(analysis_id) REFERENCES longhubang_analysis(id)  -- 外键关联分析报告表
         )
         ''')
         

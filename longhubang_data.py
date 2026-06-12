@@ -190,6 +190,8 @@ class LonghubangDataFetcher:
         if '净流入金额' in df.columns:
             df = df.sort_values('净流入金额', ascending=False)
         
+        self.logger.debug(f"[智瞰龙虎] 转换后的数据:\n{df}")
+        
         return df
     
     def analyze_data_summary(self, data_list):
@@ -219,11 +221,13 @@ class LonghubangDataFetcher:
         # Top游资排名
         if '游资名称' in df.columns and '净流入金额' in df.columns:
             top_youzi = df.groupby('游资名称')['净流入金额'].sum().sort_values(ascending=False)
+            self.logger.debug(f"[智瞰龙虎] Top游资排名:\n{top_youzi}")
             summary['top_youzi'] = top_youzi.head(10).to_dict()
         
         # Top股票排名
         if '股票代码' in df.columns and '净流入金额' in df.columns:
             top_stocks = df.groupby(['股票代码', '股票名称'])['净流入金额'].sum().sort_values(ascending=False)
+            self.logger.debug(f"[智瞰龙虎] Top股票排名:\n{top_stocks}")
             summary['top_stocks'] = [
                 {'code': code, 'name': name, 'net_inflow': amount}
                 for (code, name), amount in top_stocks.head(20).items()
@@ -235,8 +239,10 @@ class LonghubangDataFetcher:
             for concepts in df['概念'].dropna():
                 all_concepts.extend([c.strip() for c in str(concepts).split(',')])
             
+            self.logger.debug(f"[智瞰龙虎] 所有概念:\n{all_concepts}")
             from collections import Counter
             concept_counter = Counter(all_concepts)
+            self.logger.debug(f"[智瞰龙虎] 热门概念统计:\n{concept_counter.most_common(20)}")
             summary['hot_concepts'] = dict(concept_counter.most_common(20))
         
         return summary
@@ -306,7 +312,9 @@ class LonghubangDataFetcher:
                 f"日期:{row.get('日期', 'N/A')}"
             )
         
-        return "\n".join(text_parts)
+        over_view = "\n".join(text_parts)
+        self.logger.debug(f"[智瞰龙虎] 龙虎榜总体概况:\n{over_view}")
+        return over_view
 
 
 # 测试函数

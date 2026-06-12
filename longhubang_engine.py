@@ -85,6 +85,7 @@ class LonghubangEngine:
             self.logger.info("[阶段3] 数据分析和统计...")
             self.logger.info("-" * 60)
             summary = self.data_fetcher.analyze_data_summary(data_list)
+            self.logger.debug(f"[智瞰龙虎] 龙虎榜数据，摘要数据统计:\n{summary}")
             formatted_data = self.data_fetcher.format_data_for_ai(data_list, summary)
             
             results["data_info"] = {
@@ -99,6 +100,7 @@ class LonghubangEngine:
             self.logger.info("[阶段3.5] AI智能评分排名...")
             self.logger.info("-" * 60)
             scoring_df = self.scoring.score_all_stocks(data_list)
+            self.logger.debug(f"[智瞰龙虎] AI智能评分排名数据:\n{scoring_df}")
             # 转换为可序列化格式以避免UI/存储类型问题
             scoring_ranking_data: List[Dict[str, Any]] = []
             try:
@@ -112,6 +114,7 @@ class LonghubangEngine:
                 self.logger.exception(f"评分排名数据转换失败: {e}", exc_info=True)
                 scoring_ranking_data = []
             results["scoring_ranking"] = scoring_ranking_data
+            self.logger.debug(f"[智瞰龙虎] AI智能评分排名数据:\n{scoring_ranking_data}")
             
             # 阶段4: AI分析师团队分析
             self.logger.info("[阶段4] AI分析师团队工作中...")

@@ -105,7 +105,7 @@ class LonghubangAgents:
             {"role": "user", "content": prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
         
         self.logger.debug(f" ✓ 游资行为分析师分析完成, 结果:\n{analysis}")
         
@@ -206,7 +206,7 @@ class LonghubangAgents:
             {"role": "user", "content": prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
         
         self.logger.debug(f" ✓ 个股潜力分析师分析完成, 结果:\n{analysis}")
         
@@ -306,7 +306,7 @@ class LonghubangAgents:
             {"role": "user", "content": prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
         
         self.logger.debug(f" ✓ 题材追踪分析师分析完成, 结果:\n{analysis}")
         
@@ -401,7 +401,7 @@ class LonghubangAgents:
             {"role": "user", "content": prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
         
         self.logger.debug(f" ✓ 风险控制专家分析完成, 结果:\n{analysis}")
         
@@ -496,7 +496,7 @@ class LonghubangAgents:
             {"role": "user", "content": prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=5000)
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
         
         self.logger.debug(f" ✓ 首席策略师分析完成, 结果:\n{analysis}")
         
