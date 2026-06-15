@@ -23,9 +23,8 @@ class SectorStrategyDatabase:
         self.db_path = db_path
         # 初始化日志
         self.logger = log_utils.get_logger(__name__)
-        if not self.logger.handlers:
-            logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
         self.init_database()
+        self.logger.debug(f"[智策] 板块数据库初始化完成，数据库路径: {self.db_path}")
     
     def get_connection(self):
         """获取数据库连接"""
@@ -39,21 +38,21 @@ class SectorStrategyDatabase:
         # 板块原始数据表
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS sector_raw_data (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            data_date TEXT NOT NULL,
-            sector_code TEXT NOT NULL,
-            sector_name TEXT,
-            price REAL,
-            change_pct REAL,
-            volume REAL,
-            turnover REAL,
-            market_cap REAL,
-            pe_ratio REAL,
-            pb_ratio REAL,
-            data_type TEXT,
-            data_version INTEGER DEFAULT 1,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(data_date, sector_code, data_type)
+            id INTEGER PRIMARY KEY AUTOINCREMENT,    -- 主键ID，自增
+            data_date TEXT NOT NULL,                 -- 数据日期
+            sector_code TEXT NOT NULL,               -- 板块代码
+            sector_name TEXT,                        -- 板块名称
+            price REAL,                              -- 板块指数价格
+            change_pct REAL,                         -- 涨跌幅(%)
+            volume REAL,                             -- 成交量(手)
+            turnover REAL,                           -- 成交额(万元)
+            market_cap REAL,                         -- 总市值(亿元)
+            pe_ratio REAL,                           -- 市盈率
+            pb_ratio REAL,                           -- 市净率
+            data_type TEXT,                          -- 数据类型(如: daily, weekly)
+            data_version INTEGER DEFAULT 1,          -- 数据版本号
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,  -- 记录创建时间
+            UNIQUE(data_date, sector_code, data_type)   -- 唯一约束：日期+板块代码+数据类型
         )
         ''')
         
@@ -74,77 +73,77 @@ class SectorStrategyDatabase:
         # 板块新闻数据表
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS sector_news_data (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            news_date TEXT NOT NULL,
-            title TEXT,
-            content TEXT,
-            source TEXT,
-            url TEXT,
-            related_sectors TEXT,
-            sentiment_score REAL,
-            importance_score REAL,
-            data_version INTEGER DEFAULT 1,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            id INTEGER PRIMARY KEY AUTOINCREMENT,    -- 主键ID，自增
+            news_date TEXT NOT NULL,                 -- 新闻发布日期
+            title TEXT,                              -- 新闻标题
+            content TEXT,                            -- 新闻内容摘要
+            source TEXT,                             -- 新闻来源
+            url TEXT,                                -- 新闻链接
+            related_sectors TEXT,                    -- 相关板块（JSON数组）
+            sentiment_score REAL,                    -- 情感分析得分(-1到1)
+            importance_score REAL,                   -- 重要性评分(0到1)
+            data_version INTEGER DEFAULT 1,          -- 数据版本号
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP  -- 记录创建时间
         )
         ''')
         
         # AI分析报告表
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS sector_analysis_reports (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            analysis_date TEXT NOT NULL,
-            data_date_range TEXT,
-            analysis_content TEXT,
-            recommended_sectors TEXT,
-            summary TEXT,
-            confidence_score REAL,
-            risk_level TEXT,
-            investment_horizon TEXT,
-            market_outlook TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            id INTEGER PRIMARY KEY AUTOINCREMENT,    -- 主键ID，自增
+            analysis_date TEXT NOT NULL,             -- 分析报告生成日期
+            data_date_range TEXT,                    -- 分析数据的日期范围
+            analysis_content TEXT,                   -- AI分析内容（详细报告）
+            recommended_sectors TEXT,                -- 推荐板块列表（JSON格式）
+            summary TEXT,                            -- 分析摘要
+            confidence_score REAL,                   -- 置信度评分(0到1)
+            risk_level TEXT,                         -- 风险等级(低/中/高)
+            investment_horizon TEXT,                 -- 投资周期(短期/中期/长期)
+            market_outlook TEXT,                     -- 市场展望
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP  -- 记录创建时间
         )
         ''')
         
         # 板块追踪表（记录推荐板块的后续表现）
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS sector_tracking (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            analysis_id INTEGER,
-            sector_code TEXT NOT NULL,
-            sector_name TEXT,
-            recommended_date TEXT,
-            recommended_price REAL,
-            target_price REAL,
-            stop_loss_price REAL,
-            current_price REAL,
-            profit_loss_pct REAL,
-            status TEXT,
-            notes TEXT,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (analysis_id) REFERENCES sector_analysis_reports (id)
+            id INTEGER PRIMARY KEY AUTOINCREMENT,    -- 主键ID，自增
+            analysis_id INTEGER,                     -- 关联的分析报告ID（外键）
+            sector_code TEXT NOT NULL,               -- 板块代码
+            sector_name TEXT,                        -- 板块名称
+            recommended_date TEXT,                   -- 推荐日期
+            recommended_price REAL,                  -- 推荐时指数价格
+            target_price REAL,                       -- 目标价格
+            stop_loss_price REAL,                    -- 止损价格
+            current_price REAL,                      -- 当前价格
+            profit_loss_pct REAL,                    -- 盈亏百分比
+            status TEXT,                             -- 跟踪状态(持有/已止盈/已止损)
+            notes TEXT,                              -- 备注信息
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,  -- 记录更新时间
+            FOREIGN KEY (analysis_id) REFERENCES sector_analysis_reports (id)  -- 外键关联分析报告表
         )
         ''')
         
         # 数据版本管理表
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS data_versions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            data_type TEXT NOT NULL,
-            data_date TEXT NOT NULL,
-            version INTEGER NOT NULL,
-            status TEXT DEFAULT 'active',
-            fetch_success BOOLEAN DEFAULT 1,
-            error_message TEXT,
-            record_count INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(data_type, data_date, version)
+            id INTEGER PRIMARY KEY AUTOINCREMENT,    -- 主键ID，自增
+            data_type TEXT NOT NULL,                 -- 数据类型(如: sector, news)
+            data_date TEXT NOT NULL,                 -- 数据日期
+            version INTEGER NOT NULL,                -- 版本号
+            status TEXT DEFAULT 'active',            -- 状态(active/inactive)
+            fetch_success BOOLEAN DEFAULT 1,         -- 获取是否成功(1=成功,0=失败)
+            error_message TEXT,                      -- 错误信息(如有)
+            record_count INTEGER DEFAULT 0,          -- 记录条数
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,  -- 记录创建时间
+            UNIQUE(data_type, data_date, version)      -- 唯一约束：数据类型+日期+版本
         )
         ''')
         
         conn.commit()
         conn.close()
         
-        self.logger.info("[智策板块] 数据库初始化完成")
+        self.logger.info("[智策板块] 数据库表初始化完成")
     
     def save_raw_data(self, data_date, data_type, data_df, version=None):
         """

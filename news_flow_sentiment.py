@@ -7,14 +7,12 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import statistics
 
-logging.basicConfig(level=logging.INFO)
-logger = log_utils.get_logger(__name__)
-
 
 class SentimentAnalyzer:
     """情绪分析器"""
     
     def __init__(self):
+        self.logger = log_utils.get_logger(__name__)
         # 情绪分类阈值
         self.sentiment_thresholds = {
             'extremely_pessimistic': 20,   # 极度悲观

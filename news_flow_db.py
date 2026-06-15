@@ -10,16 +10,15 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from collections import Counter
 
-logging.basicConfig(level=logging.INFO)
-logger = log_utils.get_logger(__name__)
-
 
 class NewsFlowDatabase:
     """新闻流量数据库管理类"""
     
     def __init__(self, db_path: str = "news_flow.db"):
+        self.logger = log_utils.get_logger(__name__)
         self.db_path = db_path
         self.init_database()
+        self.logger.info(f"数据库初始化完成, 路径: {self.db_path}")
     
     def get_connection(self):
         """获取数据库连接"""
@@ -223,7 +222,7 @@ class NewsFlowDatabase:
         
         conn.commit()
         conn.close()
-        logger.info("✅ 新闻流量数据库初始化完成")
+        self.logger.info("✅ 新闻流量数据库初始化完成")
     
     def _migrate_database(self, cursor):
         """数据库迁移：添加缺失的列"""
@@ -245,9 +244,9 @@ class NewsFlowDatabase:
                 
                 if column not in columns:
                     cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_def}")
-                    logger.info(f"✅ 迁移: 向 {table} 添加列 {column}")
+                    self.logger.info(f"✅ 迁移: 向 {table} 添加列 {column}")
             except Exception as e:
-                logger.warning(f"迁移列 {table}.{column} 时出错: {e}")
+                self.logger.warning(f"迁移列 {table}.{column} 时出错: {e}")
     
     # ==================== 快照相关方法 ====================
     
@@ -357,12 +356,12 @@ class NewsFlowDatabase:
             self._update_daily_statistics(cursor, flow_data['total_score'], hot_topics)
             
             conn.commit()
-            logger.info(f"✅ 保存流量快照成功，ID: {snapshot_id}")
+            self.logger.info(f"✅ 保存流量快照成功，ID: {snapshot_id}")
             return snapshot_id
             
         except Exception as e:
             conn.rollback()
-            logger.error(f"❌ 保存流量快照失败: {e}")
+            self.logger.error(f"❌ 保存流量快照失败: {e}")
             raise
         finally:
             conn.close()

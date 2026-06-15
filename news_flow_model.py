@@ -7,14 +7,13 @@ import log_utils
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
-logging.basicConfig(level=logging.INFO)
-logger = log_utils.get_logger(__name__)
-
 
 class NewsFlowModel:
     """新闻流量模型计算器"""
     
     def __init__(self):
+        self.logger = log_utils.get_logger(__name__)
+
         # 平台类别权重（用于转化率计算）
         self.category_weights = {
             'finance': 1.5,    # 财经平台转化率高

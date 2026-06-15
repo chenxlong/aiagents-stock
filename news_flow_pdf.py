@@ -17,16 +17,13 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-
 import log_utils
-
-logger = log_utils.get_logger(__name__)
-
 
 class NewsFlowPDFGenerator:
     """新闻流量分析PDF报告生成器"""
     
     def __init__(self):
+        self.logger = log_utils.get_logger(__name__)
         self.chinese_font = self._register_chinese_fonts()
         self.styles = self._create_styles()
     
@@ -199,11 +196,11 @@ class NewsFlowPDFGenerator:
             # 生成PDF
             doc.build(content)
             
-            logger.info(f"✅ PDF报告生成成功: {pdf_path}")
+            self.logger.info(f"✅ PDF报告生成成功: {pdf_path}")
             return pdf_path
             
         except Exception as e:
-            logger.error(f"❌ PDF生成失败: {e}")
+            self.logger.error(f"❌ PDF生成失败: {e}")
             return None
     
     def _build_cover(self, result: Dict) -> List:

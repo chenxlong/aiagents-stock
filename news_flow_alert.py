@@ -6,13 +6,10 @@ import log_utils
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
-logging.basicConfig(level=logging.INFO)
-logger = log_utils.get_logger(__name__)
-
 
 class NewsFlowAlertSystem:
     """新闻流量预警系统"""
-    
+
     # 预警类型定义
     ALERT_TYPES = {
         'heat_surge': {
@@ -56,6 +53,7 @@ class NewsFlowAlertSystem:
     
     def __init__(self):
         """初始化预警系统"""
+        self.logger = log_utils.get_logger(__name__)
         self.db = None
         self.notification_service = None
         self._init_dependencies()
@@ -75,13 +73,13 @@ class NewsFlowAlertSystem:
             from news_flow_db import news_flow_db
             self.db = news_flow_db
         except Exception as e:
-            logger.warning(f"数据库初始化失败: {e}")
+            self.logger.warning(f"数据库初始化失败: {e}")
         
         try:
             from notification_service import notification_service
             self.notification_service = notification_service
         except Exception as e:
-            logger.warning(f"通知服务初始化失败: {e}")
+            self.logger.warning(f"通知服务初始化失败: {e}")
     
     def get_threshold(self, key: str) -> float:
         """获取阈值配置"""
@@ -358,7 +356,7 @@ class NewsFlowAlertSystem:
             return True
         
         if not self.notification_service:
-            logger.warning("通知服务不可用")
+            self.logger.warning("通知服务不可用")
             return False
         
         try:
@@ -414,7 +412,7 @@ class NewsFlowAlertSystem:
             return success
             
         except Exception as e:
-            logger.error(f"发送通知失败: {e}")
+            self.logger.error(f"发送通知失败: {e}")
             return False
     
     def get_alert_history(self, days: int = 7, 

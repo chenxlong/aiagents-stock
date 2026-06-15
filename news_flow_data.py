@@ -10,14 +10,12 @@ from typing import Dict, List, Optional, Tuple
 import time
 from collections import Counter
 
-logging.basicConfig(level=logging.INFO)
-logger = log_utils.get_logger(__name__)
-
 
 class NewsFlowDataFetcher:
     """新闻流量数据获取器"""
     
     def __init__(self):
+        self.logger = log_utils.get_logger(__name__)
         # self.base_url = "https://newsapi.ws4.cn/api/v1/dailynews/"
         self.base_url = "https://orz.ai/api/v1/dailynews/"
         self.timeout = 10
@@ -96,7 +94,7 @@ class NewsFlowDataFetcher:
         try:
             url = f"{self.base_url}?platform={platform}"
             
-            logger.info(f"正在获取 {platform} 平台数据...")
+            self.logger.info(f"正在获取 {platform} 平台数据...")
             response = requests.get(url, timeout=self.timeout)
             response.raise_for_status()
             

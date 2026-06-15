@@ -8,9 +8,6 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
-logging.basicConfig(level=logging.INFO)
-logger = log_utils.get_logger(__name__)
-
 
 class NewsFlowEngine:
     """新闻流量分析引擎"""
@@ -24,9 +21,10 @@ class NewsFlowEngine:
         self.agents = None
         self.alerts = None
         self.db = None
+        self.logger = log_utils.get_logger(__name__)
         
         self._init_modules()
-        logger.info("✅ 新闻流量引擎初始化完成")
+        self.logger.info("✅ 新闻流量引擎初始化完成")
     
     def _init_modules(self):
         """初始化所有模块"""
@@ -34,37 +32,37 @@ class NewsFlowEngine:
             from news_flow_data import NewsFlowDataFetcher
             self.fetcher = NewsFlowDataFetcher()
         except Exception as e:
-            logger.error(f"数据获取模块初始化失败: {e}")
+            self.logger.error(f"数据获取模块初始化失败: {e}")
         
         try:
             from news_flow_model import NewsFlowModel
             self.model = NewsFlowModel()
         except Exception as e:
-            logger.error(f"流量模型模块初始化失败: {e}")
+            self.logger.error(f"流量模型模块初始化失败: {e}")
         
         try:
             from news_flow_sentiment import SentimentAnalyzer
             self.sentiment = SentimentAnalyzer()
         except Exception as e:
-            logger.error(f"情绪分析模块初始化失败: {e}")
+            self.logger.error(f"情绪分析模块初始化失败: {e}")
         
         try:
             from news_flow_agents import NewsFlowAgents
             self.agents = NewsFlowAgents()
         except Exception as e:
-            logger.error(f"AI分析模块初始化失败: {e}")
+            self.logger.error(f"AI分析模块初始化失败: {e}")
         
         try:
             from news_flow_alert import NewsFlowAlertSystem
             self.alerts = NewsFlowAlertSystem()
         except Exception as e:
-            logger.error(f"预警系统模块初始化失败: {e}")
+            self.logger.error(f"预警系统模块初始化失败: {e}")
         
         try:
             from news_flow_db import news_flow_db
             self.db = news_flow_db
         except Exception as e:
-            logger.error(f"数据库模块初始化失败: {e}")
+            self.logger.error(f"数据库模块初始化失败: {e}")
     
     def run_quick_analysis(self, platforms: List[str] = None, 
                            category: str = None) -> Dict:
@@ -86,11 +84,11 @@ class NewsFlowEngine:
             }
         """
         try:
-            logger.info("🚀 开始快速分析...")
+            self.logger.info("🚀 开始快速分析...")
             start_time = time.time()
             
             # 1. 获取多平台新闻数据
-            logger.info("📊 获取新闻数据...")
+            self.logger.info("📊 获取新闻数据...")
             if not self.fetcher:
                 return {'success': False, 'error': '数据获取模块不可用'}
             
@@ -105,19 +103,19 @@ class NewsFlowEngine:
             success_count = multi_result['success_count']
             
             # 2. 提取股票相关新闻
-            logger.info("🔍 提取股票相关新闻...")
+            self.logger.info("🔍 提取股票相关新闻...")
             stock_news = self.fetcher.extract_stock_related_news(platforms_data)
             
             # 3. 获取热门话题
-            logger.info("🔥 分析热门话题...")
+            self.logger.info("🔥 分析热门话题...")
             hot_topics = self.fetcher.get_hot_topics(platforms_data, top_n=20)
             
             # 4. 计算流量得分（基础）
-            logger.info("📈 计算流量得分...")
+            self.logger.info("📈 计算流量得分...")
             flow_data = self.fetcher.calculate_flow_score(platforms_data)
             
             # 5. 运行流量模型
-            logger.info("🔬 运行流量模型...")
+            self.logger.info("🔬 运行流量模型...")
             history_scores = self._get_history_scores(hours=24)
             model_data = None
             if self.model:
@@ -126,7 +124,7 @@ class NewsFlowEngine:
                 )
             
             # 6. 情绪分析
-            logger.info("💭 分析市场情绪...")
+            self.logger.info("💭 分析市场情绪...")
             sentiment_data = None
             if self.sentiment:
                 history_sentiments = self._get_history_sentiments(limit=10)
@@ -136,7 +134,7 @@ class NewsFlowEngine:
                 )
             
             # 7. 保存到数据库
-            logger.info("💾 保存分析结果...")
+            self.logger.info("💾 保存分析结果...")
             snapshot_id = None
             if self.db:
                 snapshot_id = self.db.save_flow_snapshot(
@@ -157,7 +155,7 @@ class NewsFlowEngine:
                     self.db.save_sentiment_record(snapshot_id, sentiment_record)
             
             duration = time.time() - start_time
-            logger.info(f"✅ 快速分析完成，耗时 {duration:.2f} 秒")
+            self.logger.info(f"✅ 快速分析完成，耗时 {duration:.2f} 秒")
             
             return {
                 'success': True,
@@ -174,7 +172,7 @@ class NewsFlowEngine:
             }
             
         except Exception as e:
-            logger.error(f"❌ 快速分析失败: {e}")
+            self.logger.error(f"❌ 快速分析失败: {e}")
             return {'success': False, 'error': str(e)}
     
     def run_full_analysis(self, platforms: List[str] = None, 
@@ -197,7 +195,7 @@ class NewsFlowEngine:
             }
         """
         try:
-            logger.info("🚀 开始完整分析...")
+            self.logger.info("🚀 开始完整分析...")
             start_time = time.time()
             
             # 1. 先运行快速分析
@@ -210,11 +208,11 @@ class NewsFlowEngine:
             ai_analysis = None
             if include_ai:
                 if not self.agents:
-                    logger.warning("⚠️ AI代理模块未初始化")
+                    self.logger.warning("⚠️ AI代理模块未初始化")
                 elif not self.agents.is_available():
-                    logger.warning("⚠️ DeepSeek API不可用，请检查API密钥配置")
+                    self.logger.warning("⚠️ DeepSeek API不可用，请检查API密钥配置")
                 else:
-                    logger.info("🤖 运行AI分析...")
+                    self.logger.info("🤖 运行AI分析...")
                     
                     model_data = quick_result.get('model_data', {})
                     sentiment_data = quick_result.get('sentiment_data', {})
@@ -230,7 +228,7 @@ class NewsFlowEngine:
                     )
                     
                     # 多板块深度分析（多次调用DeepSeek）
-                    logger.info("🔍 开始多板块深度分析...")
+                    self.logger.info("🔍 开始多板块深度分析...")
                     multi_sector_analysis = self.agents.run_multi_sector_analysis(
                         quick_result['hot_topics'],
                         quick_result['stock_news']
@@ -264,7 +262,7 @@ class NewsFlowEngine:
             )
             
             duration = time.time() - start_time
-            logger.info(f"✅ 完整分析完成，耗时 {duration:.2f} 秒")
+            self.logger.info(f"✅ 完整分析完成，耗时 {duration:.2f} 秒")
             
             return {
                 'success': True,
@@ -282,7 +280,7 @@ class NewsFlowEngine:
             }
             
         except Exception as e:
-            logger.error(f"❌ 完整分析失败: {e}")
+            self.logger.error(f"❌ 完整分析失败: {e}")
             return {'success': False, 'error': str(e)}
     
     def run_alert_check(self) -> Dict:
@@ -296,7 +294,7 @@ class NewsFlowEngine:
             }
         """
         try:
-            logger.info("⚠️ 开始预警检查...")
+            self.logger.info("⚠️ 开始预警检查...")
             
             if not self.alerts:
                 return {'success': False, 'error': '预警系统不可用'}
@@ -326,7 +324,7 @@ class NewsFlowEngine:
                 quick_result.get('snapshot_id')
             )
             
-            logger.info(f"✅ 预警检查完成，触发 {len(alerts)} 个预警")
+            self.logger.info(f"✅ 预警检查完成，触发 {len(alerts)} 个预警")
             
             return {
                 'success': True,
@@ -335,7 +333,7 @@ class NewsFlowEngine:
             }
             
         except Exception as e:
-            logger.error(f"❌ 预警检查失败: {e}")
+            self.logger.error(f"❌ 预警检查失败: {e}")
             return {'success': False, 'error': str(e)}
     
     def get_dashboard_data(self) -> Dict:
@@ -381,7 +379,7 @@ class NewsFlowEngine:
             return data
             
         except Exception as e:
-            logger.error(f"获取仪表盘数据失败: {e}")
+            self.logger.error(f"获取仪表盘数据失败: {e}")
             return {}
     
     def get_flow_trend(self, days: int = 7) -> Dict:

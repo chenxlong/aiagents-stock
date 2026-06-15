@@ -7,6 +7,7 @@ from deepseek_client import DeepSeekClient
 from typing import Dict, Any
 import time
 import config
+import log_utils
 
 
 class SectorStrategyAgents:
@@ -15,7 +16,8 @@ class SectorStrategyAgents:
     def __init__(self, model=None):
         self.model = model or config.DEFAULT_MODEL_NAME
         self.deepseek_client = DeepSeekClient(model=self.model)
-        print(f"[智策] AI智能体系统初始化 (模型: {self.model})")
+        self.logger = log_utils.get_logger(__name__)
+        self.logger.info(f"[智策智能体] AI智能体系统初始化 (模型: {self.model})")
     
     def macro_strategist_agent(self, market_data: Dict, news_data: list) -> Dict[str, Any]:
         """
@@ -26,7 +28,7 @@ class SectorStrategyAgents:
         - 判断对整体市场和不同板块的潜在影响
         - 识别政策导向和宏观趋势
         """
-        print("🌐 宏观策略师正在分析...")
+        self.logger.info("🌐 宏观策略师正在分析...")
         time.sleep(1)
         
         # 构建新闻摘要
@@ -103,15 +105,17 @@ class SectorStrategyAgents:
 
 请给出专业、深入的宏观策略分析报告。
 """
+        self.logger.debug(f"[智策智能体] 宏观策略师分析提示:\n {prompt}")
         
         messages = [
             {"role": "system", "content": "你是一名资深的宏观策略分析师，擅长从宏观经济、政策和新闻事件中把握市场脉搏。"},
             {"role": "user", "content": prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
-        
-        print("  ✓ 宏观策略师分析完成")
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
+        self.logger.debug(f"[智策智能体] 宏观策略师分析结果:\n {analysis}")
+
+        self.logger.info(" ✓ 宏观策略师分析完成")
         
         return {
             "agent_name": "宏观策略师",
@@ -130,7 +134,7 @@ class SectorStrategyAgents:
         - 评估板块的估值水平
         - 分析板块的成长性和基本面因素
         """
-        print("📊 板块诊断师正在分析...")
+        self.logger.info("📊 板块诊断师正在分析...")
         time.sleep(1)
         
         # 构建行业板块数据
@@ -215,15 +219,16 @@ class SectorStrategyAgents:
 
 请给出专业、详细的板块诊断报告。
 """
+        self.logger.debug(f"[智策智能体] 板块诊断师分析提示:\n {prompt}")
         
         messages = [
             {"role": "system", "content": "你是一名资深的板块分析师，擅长板块趋势判断和投资价值评估。"},
             {"role": "user", "content": prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
-        
-        print("  ✓ 板块诊断师分析完成")
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
+        self.logger.debug(f"[智策智能体] 板块诊断师分析结果:\n {analysis}")
+        self.logger.info(" ✓ 板块诊断师分析完成")
         
         return {
             "agent_name": "板块诊断师",
@@ -242,7 +247,7 @@ class SectorStrategyAgents:
         - 分析北向资金的板块偏好
         - 判断资金进攻或撤离的方向
         """
-        print("💰 资金流向分析师正在分析...")
+        self.logger.info("💰 资金流向分析师正在分析...")
         time.sleep(1)
         
         # 构建资金流向数据
@@ -342,15 +347,16 @@ class SectorStrategyAgents:
 
 请给出专业、深度的资金流向分析报告。
 """
+        self.logger.debug(f"[智策智能体] 资金流向分析师分析提示:\n {prompt}")
         
         messages = [
             {"role": "system", "content": "你是一名资深的资金流向分析师，擅长从资金数据中洞察主力意图和市场趋势。"},
             {"role": "user", "content": prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
-        
-        print("  ✓ 资金流向分析师分析完成")
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
+        self.logger.debug(f"[智策智能体] 资金流向分析师分析结果:\n {analysis}")
+        self.logger.info(" ✓ 资金流向分析师分析完成")
         
         return {
             "agent_name": "资金流向分析师",
@@ -369,7 +375,7 @@ class SectorStrategyAgents:
         - 识别过度乐观或恐慌信号
         - 评估板块热度和市场关注度
         """
-        print("📈 市场情绪解码员正在分析...")
+        self.logger.info("📈 市场情绪解码员正在分析...")
         time.sleep(1)
         
         # 构建市场情绪指标
@@ -482,15 +488,16 @@ class SectorStrategyAgents:
 
 请给出专业、客观的市场情绪分析报告，避免主观臆测。
 """
+        self.logger.debug(f"[智策智能体] 市场情绪解码员分析提示:\n {prompt}")
         
         messages = [
             {"role": "system", "content": "你是一名资深的市场情绪分析师，擅长从市场数据中解读投资者情绪和市场心理。"},
             {"role": "user", "content": prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
-        
-        print("  ✓ 市场情绪解码员分析完成")
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
+        self.logger.debug(f"[智策智能体] 市场情绪解码员分析结果:\n {analysis}")
+        self.logger.info(" ✓ 市场情绪解码员分析完成")
         
         return {
             "agent_name": "市场情绪解码员",

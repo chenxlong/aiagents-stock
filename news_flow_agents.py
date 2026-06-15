@@ -9,9 +9,6 @@ import time
 from datetime import datetime
 from typing import Dict, List, Optional
 
-logging.basicConfig(level=logging.INFO)
-logger = log_utils.get_logger(__name__)
-
 
 class NewsFlowAgents:
     """新闻流量智能分析代理"""
@@ -23,19 +20,21 @@ class NewsFlowAgents:
         Args:
             model: 使用的模型，默认从 .env 的 DEFAULT_MODEL_NAME 读取
         """
+        self.logger = log_utils.get_logger(__name__)
         import config
         self.model = model or config.DEFAULT_MODEL_NAME
         self.deepseek_client = None
         self._init_client()
+        self.logger.info(f"新闻流量分析智能体初始化完成")
     
     def _init_client(self):
         """初始化DeepSeek客户端"""
         try:
             from deepseek_client import DeepSeekClient
             self.deepseek_client = DeepSeekClient(model=self.model)
-            logger.info(f"✅ DeepSeek客户端初始化成功，模型: {self.model}")
+            self.logger.info(f"✅ DeepSeek客户端初始化成功，模型: {self.model}")
         except Exception as e:
-            logger.error(f"❌ DeepSeek客户端初始化失败: {e}")
+            self.logger.error(f"❌ DeepSeek客户端初始化失败: {e}")
             self.deepseek_client = None
     
     def is_available(self) -> bool:
@@ -151,7 +150,7 @@ class NewsFlowAgents:
                 return self._fallback_sector_analysis(hot_topics, stock_news)
                 
         except Exception as e:
-            logger.error(f"板块分析失败: {e}")
+            self.logger.error(f"板块分析失败: {e}")
             return self._fallback_sector_analysis(hot_topics, stock_news)
     
     def stock_recommend_agent(self, hot_sectors: List[Dict],
@@ -248,7 +247,7 @@ class NewsFlowAgents:
                 return self._fallback_stock_recommend(hot_sectors)
                 
         except Exception as e:
-            logger.error(f"股票推荐失败: {e}")
+            self.logger.error(f"股票推荐失败: {e}")
             return self._fallback_stock_recommend(hot_sectors)
     
     def risk_assess_agent(self, flow_stage: str, 
@@ -330,7 +329,7 @@ class NewsFlowAgents:
                 return self._fallback_risk_assess(flow_stage, sentiment_data, viral_k)
                 
         except Exception as e:
-            logger.error(f"风险评估失败: {e}")
+            self.logger.error(f"风险评估失败: {e}")
             return self._fallback_risk_assess(flow_stage, sentiment_data, viral_k)
     
     def investment_advisor_agent(self, sector_analysis: Dict,
@@ -443,7 +442,7 @@ class NewsFlowAgents:
                 return self._fallback_investment_advice(risk_assess, flow_data)
                 
         except Exception as e:
-            logger.error(f"投资建议生成失败: {e}")
+            self.logger.error(f"投资建议生成失败: {e}")
             return self._fallback_investment_advice(risk_assess, flow_data)
     
     def run_full_analysis(self, hot_topics: List[Dict],
@@ -467,14 +466,14 @@ class NewsFlowAgents:
         """
         start_time = time.time()
         
-        logger.info("🤖 开始AI分析...")
+        self.logger.info("🤖 开始AI分析...")
         
         # 1. 板块影响分析
         logger.info("  📊 分析板块影响...")
         sector_analysis = self.sector_impact_agent(hot_topics, stock_news, flow_data)
         
         # 2. 股票推荐
-        logger.info("  📈 生成股票推荐...")
+        self.logger.info("  📈 生成股票推荐...")
         flow_stage = sentiment_data.get('flow_stage', {}).get('stage_name', '未知')
         sentiment_class = sentiment_data.get('sentiment', {}).get('sentiment_class', '中性')
         stock_recommend = self.stock_recommend_agent(
@@ -484,7 +483,7 @@ class NewsFlowAgents:
         )
         
         # 3. 风险评估
-        logger.info("  ⚠️ 评估风险...")
+        self.logger.info("  ⚠️ 评估风险...")
         risk_assess = self.risk_assess_agent(
             flow_stage,
             sentiment_data.get('sentiment', {}),
@@ -493,7 +492,7 @@ class NewsFlowAgents:
         )
         
         # 4. 综合投资建议
-        logger.info("  💡 生成投资建议...")
+        self.logger.info("  💡 生成投资建议...")
         investment_advice = self.investment_advisor_agent(
             sector_analysis,
             stock_recommend,
@@ -503,7 +502,7 @@ class NewsFlowAgents:
         )
         
         total_time = time.time() - start_time
-        logger.info(f"✅ AI分析完成，耗时 {total_time:.2f} 秒")
+        self.logger.info(f"✅ AI分析完成，耗时 {total_time:.2f} 秒")
         
         # 汇总结果
         return {
@@ -603,7 +602,7 @@ class NewsFlowAgents:
                 return {'success': False, 'sector_name': sector_name}
                 
         except Exception as e:
-            logger.error(f"{sector_name}板块分析失败: {e}")
+            self.logger.error(f"{sector_name}板块分析失败: {e}")
             return {'success': False, 'sector_name': sector_name, 'error': str(e)}
     
     def run_multi_sector_analysis(self, hot_topics: List[Dict], 
@@ -636,12 +635,12 @@ class NewsFlowAgents:
         if not target_sectors:
             target_sectors = self._identify_hot_sectors(hot_topics, stock_news)
         
-        logger.info(f"🔍 开始分析 {len(target_sectors)} 个热门板块: {target_sectors}")
+        self.logger.info(f"🔍 开始分析 {len(target_sectors)} 个热门板块: {target_sectors}")
         
         # 对每个板块进行深度分析
         sector_analyses = []
         for sector in target_sectors[:5]:  # 最多分析5个板块
-            logger.info(f"  📊 分析板块: {sector}")
+            self.logger.info(f"  📊 分析板块: {sector}")
             
             # 筛选与该板块相关的新闻
             related_news = self._filter_news_by_sector(stock_news, sector)
@@ -655,7 +654,7 @@ class NewsFlowAgents:
         summary = self._generate_multi_sector_summary(sector_analyses)
         
         total_time = time.time() - start_time
-        logger.info(f"✅ 多板块分析完成，耗时 {total_time:.2f} 秒")
+        self.logger.info(f"✅ 多板块分析完成，耗时 {total_time:.2f} 秒")
         
         return {
             'sector_analyses': sector_analyses,
@@ -811,7 +810,7 @@ class NewsFlowAgents:
             return None
             
         except json.JSONDecodeError as e:
-            logger.error(f"JSON解析失败: {e}")
+            self.logger.error(f"JSON解析失败: {e}")
             return None
     
     # ==================== 降级方法 ====================
