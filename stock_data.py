@@ -7,8 +7,13 @@ from datetime import datetime, timedelta
 import requests
 import json
 import pywencai
+import time
 from data_source_manager import data_source_manager
 import log_utils
+
+# 应用 akshare 请求补丁（确保请求头/超时/重试）
+from utils.akshare_helper import patch_requests, retry_on_failure
+patch_requests()
 
 class StockDataFetcher:
     """股票数据获取类"""
@@ -79,7 +84,7 @@ class StockDataFetcher:
         # 初始化基本信息
         info = {
             "symbol": symbol,
-            "name": "未知",
+            "name": "N/A",
             "current_price": "N/A",
             "change_percent": "N/A",
             "pe_ratio": "N/A",
@@ -88,7 +93,10 @@ class StockDataFetcher:
             "list_date": "N/A",
             "circulating_market_cap": "N/A",
             "market": "中国A股",
-            "exchange": "上海/深圳证券交易所"
+            "exchange": "上海/深圳证券交易所",
+            "industry": "N/A",
+            "Total_share_capital": "N/A",
+            "tradable_share_capital": "N/A"
         }
         
         try:
@@ -97,90 +105,11 @@ class StockDataFetcher:
             if basic_info:
                 info.update(basic_info)
             
-            # 方法1: 尝试获取个股详细信息（akshare）
-            try:
-                # todo 和上面 get_stock_basic_info 取得数据一样 ？？？
-                stock_info = ak.stock_individual_info_em(symbol=symbol)
-                self.logger.info(f"[Akshare] 获取到个股详细信息:\n {stock_info} ")
-
-                if stock_info is not None and not stock_info.empty:
-                    for _, row in stock_info.iterrows():
-                        key = row['item']
-                        value = row['value']
-                        
-                        if key == '股票简称':
-                            info['name'] = value
-                        elif key == '总市值':
-                            info['market_cap'] = value
-                        elif key == '流通市值':
-                            info['circulating_market_cap'] = value
-                        elif key == '最新':
-                            info['current_price'] = value
-                        elif key == '总股本':
-                            info['Total_share_capital'] = value
-                        elif key == '流通股':
-                            info['tradable_share_capital'] = value
-                        elif key == '上市时间':
-                            info['list_date'] = value
-            except Exception as e:
-                self.logger.warning(f"[Akshare] 获取个股详细信息失败: {e}")
-                # 如果akshare失败，尝试从tushare获取
-                if self.data_source_manager.tushare_available and info['name'] == '未知':
-                    self.logger.warning(f"[Tushare] 尝试获取基本信息（tushare）...")
-                    try:
-                        ts_code = self.data_source_manager._convert_to_ts_code(symbol)
-                        df = self.data_source_manager.tushare_api.daily_basic(
-                            ts_code=ts_code,
-                            trade_date=datetime.now().strftime('%Y%m%d')
-                        )
-                        self.logger.info(f"[Tushare] 获取股票 {symbol} 获取到基本信息:\n {df} ")
-
-                        if df is not None and not df.empty:
-                            row = df.iloc[0]
-                            info['pe_ratio'] = row.get('pe', 'N/A')
-                            info['pb_ratio'] = row.get('pb', 'N/A')
-                            info['market_cap'] = row.get('total_mv', 'N/A')
-                            self.logger.info(f"[Tushare] ✅ 成功获取部分信息")
-                    except Exception as te:
-                        self.logger.error(f"[Tushare] ❌ 获取失败: {te}")
+            # 方法1: 尝试使用tushare获取详细信息
+            # detail_info = self.data_source_manager._get_stock_basic_info_tushare2(symbol)
+            # if detail_info:
+            #     info.update(detail_info)
             
-            # 方法2: 尝试获取历史价格和涨跌幅（如果网络允许）
-            # try:
-            #     # 使用更简单的接口获取实时价格
-            #     real_time_data = ak.stock_zh_a_spot_em()
-            #     if real_time_data is not None and not real_time_data.empty:
-            #         stock_real_time = real_time_data[real_time_data['代码'] == symbol]
-            #         if not stock_real_time.empty:
-            #             row = stock_real_time.iloc[0]
-            #             info['current_price'] = row.get('最新价', 'N/A')
-            #             info['change_percent'] = row.get('涨跌幅', 'N/A')
-            #             if info['name'] == '未知':
-            #                 info['name'] = row.get('名称', '未知')
-                        
-            #             # 如果实时数据中有市盈率和市净率，优先使用
-            #             if '市盈率-动态' in row and info['pe_ratio'] == 'N/A':
-            #                 try:
-            #                     pe_val = row['市盈率-动态']
-            #                     if pe_val and pe_val != '-':
-            #                         pe_val = float(pe_val)
-            #                         if 0 < pe_val <= 1000:
-            #                             info['pe_ratio'] = pe_val
-            #                 except:
-            #                     pass
-                        
-            #             if '市净率' in row and info['pb_ratio'] == 'N/A':
-            #                 try:
-            #                     pb_val = row['市净率']
-            #                     if pb_val and pb_val != '-':
-            #                         pb_val = float(pb_val)
-            #                         if 0 < pb_val <= 100:
-            #                             info['pb_ratio'] = pb_val
-            #                 except:
-            #                     pass
-                                
-            # except Exception as e:
-            #     print(f"[Akshare] 获取实时数据失败: {e}")
-            #     # 如果实时数据获取失败，尝试使用数据源管理器获取历史数据（支持tushare备用）
             try:
                 self.logger.info(f"[数据源管理器] 尝试获取30天历史价格数据...")
                 hist_data = self.data_source_manager.get_stock_hist_data(

@@ -1511,10 +1511,25 @@ def display_stock_chart(stock_data, stock_info):
     """显示股票图表"""
     st.subheader("📈 股价走势图")
 
-    # 创建蜡烛图
-    fig = go.Figure()
+    # 检查是否有成交量数据
+    has_volume = 'Volume' in stock_data.columns
+    
+    # 固定使用子图布局，根据是否有成交量调整行数
+    from plotly.subplots import make_subplots
+    
+    if has_volume:
+        fig = make_subplots(
+            rows=2, cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.03,
+            row_heights=[0.7, 0.3]
+        )
+    else:
+        fig = make_subplots(
+            rows=1, cols=1
+        )
 
-    # 添加蜡烛图
+    # 添加蜡烛图到第一行
     fig.add_trace(go.Candlestick(
         x=stock_data.index,
         open=stock_data['Open'],
@@ -1522,16 +1537,16 @@ def display_stock_chart(stock_data, stock_info):
         low=stock_data['Low'],
         close=stock_data['Close'],
         name="K线"
-    ))
+    ), row=1, col=1)
 
-    # 添加移动平均线
+    # 添加移动平均线到第一行
     if 'MA5' in stock_data.columns:
         fig.add_trace(go.Scatter(
             x=stock_data.index,
             y=stock_data['MA5'],
             name="MA5",
             line=dict(color='orange', width=1)
-        ))
+        ), row=1, col=1)
 
     if 'MA20' in stock_data.columns:
         fig.add_trace(go.Scatter(
@@ -1539,7 +1554,7 @@ def display_stock_chart(stock_data, stock_info):
             y=stock_data['MA20'],
             name="MA20",
             line=dict(color='blue', width=1)
-        ))
+        ), row=1, col=1)
 
     if 'MA60' in stock_data.columns:
         fig.add_trace(go.Scatter(
@@ -1547,16 +1562,16 @@ def display_stock_chart(stock_data, stock_info):
             y=stock_data['MA60'],
             name="MA60",
             line=dict(color='purple', width=1)
-        ))
+        ), row=1, col=1)
 
-    # 布林带
+    # 布林带添加到第一行
     if 'BB_upper' in stock_data.columns and 'BB_lower' in stock_data.columns:
         fig.add_trace(go.Scatter(
             x=stock_data.index,
             y=stock_data['BB_upper'],
             name="布林上轨",
             line=dict(color='red', width=1, dash='dash')
-        ))
+        ), row=1, col=1)
         fig.add_trace(go.Scatter(
             x=stock_data.index,
             y=stock_data['BB_lower'],
@@ -1564,48 +1579,108 @@ def display_stock_chart(stock_data, stock_info):
             line=dict(color='green', width=1, dash='dash'),
             fill='tonexty',
             fillcolor='rgba(0,100,80,0.1)'
-        ))
+        ), row=1, col=1)
 
-    fig.update_layout(
-        title=f"{stock_info.get('name', 'N/A')} 股价走势",
-        xaxis_title="日期",
-        yaxis_title="价格",
-        height=500,
-        showlegend=True,
-        xaxis=dict(
-            tickformat="%Y/%m/%d",
-            tickfont=dict(size=10)
-        )
-    )
-
-    # 生成唯一的key
-    chart_key = f"main_stock_chart_{stock_info.get('symbol', 'unknown')}_{int(time.time())}"
-    st.plotly_chart(fig, use_container_width=True, config={'responsive': True}, key=chart_key)
-
-    # 成交量图
-    if 'Volume' in stock_data.columns:
-        fig_volume = go.Figure()
-        fig_volume.add_trace(go.Bar(
+    # 添加成交量到第二行（如果有）
+    if has_volume:
+        fig.add_trace(go.Bar(
             x=stock_data.index,
             y=stock_data['Volume'],
             name="成交量",
             marker_color='lightblue'
-        ))
+        ), row=2, col=1)
 
-        fig_volume.update_layout(
-            title="成交量",
-            xaxis_title="日期",
-            yaxis_title="成交量",
-            height=500,
-            xaxis=dict(
-                tickformat="%Y/%m/%d",
-                tickfont=dict(size=10)
-            )
+    # 更新布局
+    fig.update_layout(
+        title=f"{stock_info.get('name', 'N/A')} 股价走势",
+        height=600 if has_volume else 500,
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=1.05,
+            xanchor="center",
+            x=0.5
+        ),
+        margin=dict(
+            l=50,
+            r=50,
+            t=80,
+            b=50
         )
+    )
 
-        # 生成唯一的key
-        volume_key = f"volume_chart_{stock_info.get('symbol', 'unknown')}_{int(time.time())}"
-        st.plotly_chart(fig_volume, use_container_width=True, config={'responsive': True}, key=volume_key)
+    # 定义时间范围选择按钮
+    rangeselector_config = dict(
+        buttons=list([
+            dict(count=1, label="1月", step="month", stepmode="backward"),
+            dict(count=3, label="3月", step="month", stepmode="backward"),
+            dict(count=6, label="6月", step="month", stepmode="backward"),
+            dict(step="all", label="全部")
+        ]),
+        font=dict(size=10),
+        x=0.02,
+        y=1.15,
+        xanchor='left',
+        yanchor='top'
+    )
+    
+    # 更新X轴和Y轴
+    if has_volume:
+        # 子图模式下，分别更新两个X轴
+        # 第一行（蜡烛图）- 添加时间范围选择按钮，禁用范围选择器
+        fig.update_xaxes(
+            tickformat="%Y-%m-%d",
+            tickfont=dict(size=10),
+            rangeselector=rangeselector_config,
+            rangeslider=dict(visible=False),  # 禁用第一行的范围选择器
+            row=1, col=1
+        )
+        # 第二行（成交量图）- 底部显示范围选择器
+        fig.update_xaxes(
+            tickformat="%Y-%m-%d",
+            tickfont=dict(size=10),
+            rangeslider=dict(
+                visible=True,
+                thickness=0.1,
+                bordercolor='#cccccc'
+            ),
+            row=2, col=1
+        )
+    else:
+        # 单图模式
+        fig.update_xaxes(
+            tickformat="%Y-%m-%d",
+            tickfont=dict(size=10),
+            rangeselector=rangeselector_config,
+            rangeslider=dict(
+                visible=True,
+                thickness=0.1,
+                bordercolor='#cccccc'
+            ),
+            row=1, col=1
+        )
+    
+    # 设置悬停时的日期格式为中文格式
+    fig.update_layout(
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor='rgba(255, 255, 255, 0.95)',
+            font=dict(size=12)
+        ),
+        xaxis=dict(
+            hoverformat='%Y年%m月%d日'
+        )
+    )
+    
+    fig.update_yaxes(title_text="价格", row=1, col=1)
+    
+    if has_volume:
+        fig.update_yaxes(title_text="成交量", row=2, col=1)
+
+    # 生成唯一的key
+    chart_key = f"main_stock_chart_{stock_info.get('symbol', 'unknown')}_{int(time.time())}"
+    st.plotly_chart(fig, use_container_width=True, config={'responsive': True}, key=chart_key)
 
 def display_agents_analysis(agents_results):
     """显示各分析师报告"""
