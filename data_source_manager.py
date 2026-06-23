@@ -90,8 +90,6 @@ class DataSourceManager:
                     symbol=tx_symbol,
                     start_date=start_date,
                     end_date=end_date,
-                    # start_date=f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}",
-                    # end_date=f"{end_date[:4]}-{end_date[4:6]}-{end_date[6:]}",
                     adjust=adjust
                 )
                 self.logger.info(f"[Akshare-腾讯] 获取到 {symbol} 的历史数据:\n {df} ")
@@ -156,18 +154,57 @@ class DataSourceManager:
             adj_dict = {'qfq': 'qfq', 'hfq': 'hfq', '': None}
             adj = adj_dict.get(adjust, 'qfq')
             
-            # 格式化日期
-            start = f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}" if start_date else None
-            end = f"{end_date[:4]}-{end_date[4:6]}-{end_date[6:]}" if end_date else None
+            self.logger.debug(f"[Tushare] 转换后代码: {ts_code}, 开始日期: {start_date}, 结束日期: {end_date}, 复权类型: {adjust}")
             
-            # 获取数据
             df = self.tushare_api.daily(
-                ts_code=ts_code,
-                start_date=start_date,
-                end_date=end_date,
-                adj=adj
-            )
-            self.logger.info(f"[Tushare] 获取到 {symbol} 的历史数据:\n {df} ")
+                                ts_code=ts_code,
+                                start_date=start_date,
+                                end_date=end_date,
+                                adj=adj
+                            )
+
+            # 直接使用 requests 调用 API（绕过 tushare 库的问题）
+            # import requests
+            # req_params = {
+            #     'api_name': 'daily',
+            #     'token': self.tushare_token,
+            #     'params': {
+            #         'ts_code': ts_code,
+            #         'start_date': start_date,
+            #         'end_date': end_date,
+            #         'adj': adj
+            #     },
+            #     'fields': ''
+            # }
+            # headers = {
+            #     'Content-Type': 'application/json',
+            #     'Accept-Encoding': 'gzip, deflate'
+            # }
+            # res = requests.post('https://api.waditu.com/dataapi/daily', json=req_params, headers=headers, timeout=30)
+            
+            # # 解析 JSON 响应
+            # import json
+            # resp_data = res.json()
+            
+            # # 检查 API 返回码
+            # if resp_data.get('code') != 0:
+            #     error_msg = resp_data.get('msg', 'Unknown error')
+            #     self.logger.error(f"[Tushare] API返回错误: code={resp_data.get('code')}, msg={error_msg}")
+            #     return None
+            
+            # # 提取数据
+            # data = resp_data.get('data', {})
+            # fields = data.get('fields', [])
+            # items = data.get('items', [])
+            
+            # if not items:
+            #     self.logger.warning(f"[Tushare] 未获取到 {symbol} 的数据")
+            #     return None
+            
+            # # 构建 DataFrame
+            # df = pd.DataFrame(items, columns=fields)
+
+            self.logger.info(f"[Tushare] 获取到 {symbol} 的历史数据:\n{df}")
             
             if df is not None and not df.empty:
                 # 标准化列名和数据格式
@@ -184,10 +221,12 @@ class DataSourceManager:
                 # 转换成交额单位（tushare单位是千元，转换为元）
                 df['amount'] = df['amount'] * 1000
                 
-                self.logger.info(f"[Tushare] ✅ 成功获取 {len(df)} 条数据")
+                self.logger.info(f"[Tushare] ✅ 成功获取 {len(df)} 条数据，转换后数据:\n{df}")
                 return df
         except Exception as e:
-            self.logger.error(f"[Tushare] ❌ 获取失败: {e}")
+            self.logger.error(f"[Tushare] ❌ 获取失败: {e} 错误类型: {type(e).__name__}")
+            import traceback
+            self.logger.error(f"[Tushare] 完整错误堆栈:\n{traceback.format_exc()}")
         
         return None
 
@@ -250,11 +289,38 @@ class DataSourceManager:
             "Total_share_capital": "N/A",
             "tradable_share_capital": "N/A"
         }
-        try:
+        
+        @retry_on_failure(max_retries=3, base_delay=2.0, exceptions=(Exception,))
+        def _fetch_akshare_stock_info(symbol):
             import akshare as ak
+            import functools
+            # 动态修补 akshare 内部请求模块
+            try:
+                if hasattr(ak, 'request') and hasattr(ak.request, 'make_request_with_retry_json'):
+                    _orig_retry = ak.request.make_request_with_retry_json
+                    
+                    @functools.wraps(_orig_retry)
+                    def _patched_retry(url, params=None, headers=None, proxies=None, max_retries=3, retry_delay=1):
+                        if headers is None:
+                            headers = {}
+                        from utils.akshare_helper import DEFAULT_HEADERS, USER_AGENTS
+                        import random
+                        final_headers = dict(DEFAULT_HEADERS)
+                        final_headers['User-Agent'] = random.choice(USER_AGENTS)
+                        final_headers.update(headers)
+                        return _orig_retry(url, params=params, headers=final_headers,
+                                           proxies=proxies, max_retries=max_retries, retry_delay=retry_delay)
+                    
+                    ak.request.make_request_with_retry_json = _patched_retry
+            except (AttributeError, ImportError):
+                pass
+            
+            return ak.stock_individual_info_em(symbol=symbol)
+        
+        try:
             self.logger.info(f"[Akshare-东方财富] 正在获取 {symbol} 的基本信息...")
             
-            stock_info = ak.stock_individual_info_em(symbol=symbol)
+            stock_info = _fetch_akshare_stock_info(symbol)
             self.logger.info(f"[Akshare-东方财富] 获取到基本信息:\n {stock_info} ")
 
             if stock_info is not None and not stock_info.empty:
@@ -1057,11 +1123,260 @@ if __name__ == "__main__":
         
         print(f"  完成 {len(tasks)} 个混合任务，耗时 {total_elapsed:.2f}s，成功率: {success_count}/{len(tasks)}")
     
+    def test__get_stock_hist_data_akshare():
+        """测试_获取股票历史数据(akshare)"""
+        print("\n=== 测试 _get_stock_hist_data_akshare ===")
+        symbols = ["688549", "000001"]
+        for symbol in symbols:
+            start_time = time.time()
+            df = data_source_manager._get_stock_hist_data_akshare(symbol, start_date="20260601", end_date="20260630")
+            elapsed = time.time() - start_time
+            if df is not None and not df.empty:
+                print(f"_get_stock_hist_data_akshare函数测试 success  {symbol}: 成功获取 {len(df)} 条数据，耗时 {elapsed:.2f}s")
+            else:
+                print(f"_get_stock_hist_data_akshare函数测试 fail  {symbol}: 获取失败")
+    
+    def test__get_stock_hist_data_tushare():
+        """测试_获取股票历史数据(tushare)"""
+        print("\n=== 测试 _get_stock_hist_data_tushare ===")
+        if not data_source_manager.tushare_available:
+            print("  Tushare不可用，跳过测试")
+            return
+        symbols = ["688549", "000001"]
+        for symbol in symbols:
+            start_time = time.time()
+            df = data_source_manager._get_stock_hist_data_tushare(symbol, start_date="20260601", end_date="20260630")
+            elapsed = time.time() - start_time
+            if df is not None and not df.empty:
+                print(f"_get_stock_hist_data_tushare函数测试 success  {symbol}: 成功获取 {len(df)} 条数据，耗时 {elapsed:.2f}s")
+            else:
+                print(f"_get_stock_hist_data_tushare函数测试 fail  {symbol}: 获取失败")
+    
+    def test__get_stock_basic_info_akshare():
+        """测试_获取股票基本信息(akshare)"""
+        print("\n=== 测试 _get_stock_basic_info_akshare ===")
+        symbols = ["688549", "000001"]
+        for symbol in symbols:
+            start_time = time.time()
+            info = data_source_manager._get_stock_basic_info_akshare(symbol)
+            elapsed = time.time() - start_time
+            if info is not None:
+                print(f"  {symbol}: 成功获取信息，公司名称: {info.get('name', '未知')}，耗时 {elapsed:.2f}s")
+            else:
+                print(f"  {symbol}: 获取失败")
+    
+    def test__get_stock_basic_info_sina():
+        """测试_获取股票基本信息(sina)"""
+        print("\n=== 测试 _get_stock_basic_info_sina ===")
+        symbols = ["688549", "000001"]
+        for symbol in symbols:
+            start_time = time.time()
+            info = data_source_manager._get_stock_basic_info_sina(symbol)
+            elapsed = time.time() - start_time
+            if info is not None:
+                print(f"  {symbol}: 成功获取信息，公司名称: {info.get('name', '未知')}，耗时 {elapsed:.2f}s")
+            else:
+                print(f"  {symbol}: 获取失败")
+    
+    def test__get_stock_basic_info_tushare():
+        """测试_获取股票基本信息(tushare)"""
+        print("\n=== 测试 _get_stock_basic_info_tushare ===")
+        if not data_source_manager.tushare_available:
+            print("  Tushare不可用，跳过测试")
+            return
+        symbols = ["688549", "000001"]
+        for symbol in symbols:
+            start_time = time.time()
+            info = data_source_manager._get_stock_basic_info_tushare(symbol)
+            elapsed = time.time() - start_time
+            if info is not None:
+                print(f"  {symbol}: 成功获取信息，公司名称: {info.get('name', '未知')}，耗时 {elapsed:.2f}s")
+            else:
+                print(f"  {symbol}: 获取失败")
+    
+    def test__get_stock_basic_info_tushare2():
+        """测试_获取股票基本信息(tushare2)"""
+        print("\n=== 测试 _get_stock_basic_info_tushare2 ===")
+        if not data_source_manager.tushare_available:
+            print("  Tushare不可用，跳过测试")
+            return
+        symbols = ["688549", "000001"]
+        for symbol in symbols:
+            start_time = time.time()
+            info = data_source_manager._get_stock_basic_info_tushare2(symbol)
+            elapsed = time.time() - start_time
+            if info is not None:
+                print(f"  {symbol}: 成功获取信息，公司名称: {info.get('name', '未知')}，耗时 {elapsed:.2f}s")
+            else:
+                print(f"  {symbol}: 获取失败")
+    
+    def test__get_realtime_quotes_akshare():
+        """测试_获取实时报价(akshare)"""
+        print("\n=== 测试 _get_realtime_quotes_akshare ===")
+        symbols = ["688549", "000001"]
+        for symbol in symbols:
+            start_time = time.time()
+            quotes = data_source_manager._get_realtime_quotes_akshare(symbol)
+            elapsed = time.time() - start_time
+            if quotes is not None:
+                print(f"  {symbol}: 成功获取报价，价格: {quotes.get('price', '未知')}，耗时 {elapsed:.2f}s")
+            else:
+                print(f"  {symbol}: 获取失败")
+    
+    def test__get_realtime_quotes_sina():
+        """测试_获取实时报价(sina)"""
+        print("\n=== 测试 _get_realtime_quotes_sina ===")
+        symbols = ["688549", "000001"]
+        for symbol in symbols:
+            start_time = time.time()
+            quotes = data_source_manager._get_realtime_quotes_sina(symbol)
+            elapsed = time.time() - start_time
+            if quotes is not None:
+                print(f"  {symbol}: 成功获取报价，价格: {quotes.get('price', '未知')}，耗时 {elapsed:.2f}s")
+            else:
+                print(f"  {symbol}: 获取失败")
+    
+    def test__get_realtime_quotes_tushare():
+        """测试_获取实时报价(tushare)"""
+        print("\n=== 测试 _get_realtime_quotes_tushare ===")
+        if not data_source_manager.tushare_available:
+            print("  Tushare不可用，跳过测试")
+            return
+        symbols = ["688549", "000001"]
+        for symbol in symbols:
+            start_time = time.time()
+            quotes = data_source_manager._get_realtime_quotes_tushare(symbol)
+            elapsed = time.time() - start_time
+            if quotes is not None:
+                print(f"  {symbol}: 成功获取报价，价格: {quotes.get('price', '未知')}，耗时 {elapsed:.2f}s")
+            else:
+                print(f"  {symbol}: 获取失败")
+    
+    def test__get_financial_data_akshare():
+        """测试_获取财务数据(akshare)"""
+        print("\n=== 测试 _get_financial_data_akshare ===")
+        symbols = ["688549", "600036"]
+        for symbol in symbols:
+            for report_type in ['income', 'balance', 'cash']:
+                start_time = time.time()
+                df = data_source_manager._get_financial_data_akshare(symbol, report_type=report_type)
+                elapsed = time.time() - start_time
+                if df is not None and not df.empty:
+                    print(f"  {symbol} {report_type}: 成功获取 {len(df)} 条数据，耗时 {elapsed:.2f}s")
+                else:
+                    print(f"  {symbol} {report_type}: 获取失败")
+    
+    def test__get_financial_data_tushare():
+        """测试_获取财务数据(tushare)"""
+        print("\n=== 测试 _get_financial_data_tushare ===")
+        if not data_source_manager.tushare_available:
+            print("  Tushare不可用，跳过测试")
+            return
+        symbols = ["688549", "600036"]
+        for symbol in symbols:
+            for report_type in ['income', 'balance', 'cash']:
+                start_time = time.time()
+                df = data_source_manager._get_financial_data_tushare(symbol, report_type=report_type)
+                elapsed = time.time() - start_time
+                if df is not None and not df.empty:
+                    print(f"  {symbol} {report_type}: 成功获取 {len(df)} 条数据，耗时 {elapsed:.2f}s")
+                else:
+                    print(f"  {symbol} {report_type}: 获取失败")
+    
+    def test__convert_to_ts_code():
+        """测试_转换为tushare代码"""
+        print("\n=== 测试 _convert_to_ts_code ===")
+        test_cases = [
+            ("688549", "688549.SH"),
+            ("000001", "000001.SZ"),
+            ("600036", "600036.SH"),
+            ("300750", "300750.SZ"),
+        ]
+        for symbol, expected in test_cases:
+            result = data_source_manager._convert_to_ts_code(symbol)
+            status = "✓" if result == expected else f"✗ (期望: {expected}, 实际: {result})"
+            print(f"  {symbol} -> {result} {status}")
+    
+    def test__convert_from_ts_code():
+        """测试_从tushare代码转换"""
+        print("\n=== 测试 _convert_from_ts_code ===")
+        test_cases = [
+            ("688549.SH", "688549"),
+            ("000001.SZ", "000001"),
+            ("600036.SH", "600036"),
+            ("300750.SZ", "300750"),
+        ]
+        for ts_code, expected in test_cases:
+            result = data_source_manager._convert_from_ts_code(ts_code)
+            status = "✓" if result == expected else f"✗ (期望: {expected}, 实际: {result})"
+            print(f"  {ts_code} -> {result} {status}")
+    
+    def test__convert_to_tx_code():
+        """测试_转换为腾讯代码"""
+        print("\n=== 测试 _convert_to_tx_code ===")
+        test_cases = [
+            ("688549", "sh688549"),
+            ("000001", "sz000001"),
+            ("600036", "sh600036"),
+            ("300750", "sz300750"),
+        ]
+        for symbol, expected in test_cases:
+            result = data_source_manager._convert_to_tx_code(symbol)
+            status = "✓" if result == expected else f"✗ (期望: {expected}, 实际: {result})"
+            print(f"  {symbol} -> {result} {status}")
+    
+    def test__get_individual_fund_flow_akshare():
+        """测试_获取个股资金流(akshare)"""
+        print("\n=== 测试 _get_individual_fund_flow_akshare ===")
+        test_cases = [("688549", "sh"), ("000001", "sz")]
+        for symbol, market in test_cases:
+            start_time = time.time()
+            df = data_source_manager._get_individual_fund_flow_akshare(symbol, market)
+            elapsed = time.time() - start_time
+            if df is not None and not df.empty:
+                print(f"  {symbol}({market}): 成功获取 {len(df)} 条数据，耗时 {elapsed:.2f}s")
+            else:
+                print(f"  {symbol}({market}): 获取失败")
+    
+    def test__get_individual_fund_flow_tushare():
+        """测试_获取个股资金流(tushare)"""
+        print("\n=== 测试 _get_individual_fund_flow_tushare ===")
+        if not data_source_manager.tushare_available:
+            print("  Tushare不可用，跳过测试")
+            return
+        test_cases = [("688549", "sh"), ("000001", "sz")]
+        for symbol, market in test_cases:
+            start_time = time.time()
+            df = data_source_manager._get_individual_fund_flow_tushare(symbol, market)
+            elapsed = time.time() - start_time
+            if df is not None and not df.empty:
+                print(f"  {symbol}({market}): 成功获取 {len(df)} 条数据，耗时 {elapsed:.2f}s")
+            else:
+                print(f"  {symbol}({market}): 获取失败")
+    
     # 运行所有测试
     print("=" * 60)
     print("Data Source Manager 测试套件")
     print("=" * 60)
     
+    # 私有方法测试
+    test__get_stock_hist_data_akshare()
+    test__get_stock_hist_data_tushare()
+    test__get_stock_basic_info_akshare()
+    test__get_stock_basic_info_sina()
+    test__get_stock_basic_info_tushare()
+    test__get_stock_basic_info_tushare2()
+    test__get_realtime_quotes_akshare()
+    test__get_realtime_quotes_sina()
+    test__get_realtime_quotes_tushare()
+    test__get_financial_data_akshare()
+    test__get_financial_data_tushare()
+    test__convert_to_ts_code()
+    test__convert_from_ts_code()
+    test__convert_to_tx_code()
+    test__get_individual_fund_flow_akshare()
+    test__get_individual_fund_flow_tushare()
+        
     # 基础功能测试
     test_get_stock_hist_data()
     test_get_stock_basic_info()

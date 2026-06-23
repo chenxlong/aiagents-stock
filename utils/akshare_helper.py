@@ -41,6 +41,13 @@ USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
 ]
 
+# 不需要注入浏览器头的域名白名单（API服务）
+API_DOMAINS = {
+    'api.waditu.com',      # Tushare API
+    'api.deepseek.com',    # DeepSeek API
+    'api.openai.com',      # OpenAI API
+}
+
 _patched = False
 
 
@@ -66,6 +73,18 @@ def patch_requests():
     # --- 1. 修补 Session.request（所有 Session 方法底层都走这） ---
     @functools.wraps(_original_request)
     def _patched_session_request(self, method, url, **kwargs):
+        from urllib.parse import urlparse
+        
+        # 获取域名
+        parsed_url = urlparse(url)
+        domain = parsed_url.netloc
+        
+        # 如果是API域名，不注入浏览器头
+        if domain in API_DOMAINS:
+            if 'timeout' not in kwargs or kwargs['timeout'] is None:
+                kwargs['timeout'] = 30
+            return _original_request(self, method, url, **kwargs)
+        
         # 合并默认请求头（用户传入的 headers 优先）
         headers = dict(DEFAULT_HEADERS)
         # 随机轮换 User-Agent
@@ -86,6 +105,16 @@ def patch_requests():
     # --- 2. 修补 requests.get （兼容直接调用 requests.get 的代码） ---
     @functools.wraps(_original_get)
     def _patched_get(url, **kwargs):
+        from urllib.parse import urlparse
+        
+        parsed_url = urlparse(url)
+        domain = parsed_url.netloc
+        
+        if domain in API_DOMAINS:
+            if 'timeout' not in kwargs or kwargs['timeout'] is None:
+                kwargs['timeout'] = 30
+            return _original_get(url, **kwargs)
+        
         headers = dict(DEFAULT_HEADERS)
         headers['User-Agent'] = random.choice(USER_AGENTS)
         user_headers = kwargs.pop('headers', None)
@@ -103,6 +132,16 @@ def patch_requests():
     # --- 3. 修补 requests.post ---
     @functools.wraps(_original_post)
     def _patched_post(url, **kwargs):
+        from urllib.parse import urlparse
+        
+        parsed_url = urlparse(url)
+        domain = parsed_url.netloc
+        
+        if domain in API_DOMAINS:
+            if 'timeout' not in kwargs or kwargs['timeout'] is None:
+                kwargs['timeout'] = 30
+            return _original_post(url, **kwargs)
+        
         headers = dict(DEFAULT_HEADERS)
         headers['User-Agent'] = random.choice(USER_AGENTS)
         user_headers = kwargs.pop('headers', None)
