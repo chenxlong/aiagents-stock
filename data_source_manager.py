@@ -8,6 +8,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import log_utils
+import traceback
 
 # 加载环境变量
 load_dotenv()
@@ -17,8 +18,8 @@ load_dotenv()
 # 为所有 requests 请求注入 User-Agent 等请求头，
 # 解决东方财富服务器 RemoteDisconnected 问题
 # ============================================================
-from utils.akshare_helper import patch_requests, retry_on_failure
-patch_requests()
+from utils.akshare_helper import RequestsPatcher
+# patch_requests()
 
 class DataSourceManager:
     """数据源管理器 - 实现akshare与tushare自动切换"""
@@ -29,6 +30,7 @@ class DataSourceManager:
         self.tushare_token = os.getenv('TUSHARE_TOKEN', '')
         self.tushare_available = False
         self.tushare_api = None
+        self.days = 30  # 获取最近30个交易日
         
         # 初始化tushare
         if self.tushare_token:
@@ -104,6 +106,23 @@ class DataSourceManager:
                         'low': 'low',
                         'amount': 'amount'
                     })
+
+                    # 基于已有数据，新增三列，其他完全不动
+                    # 1. 正常生成前收、涨跌、涨跌幅（百分比）
+                    if 'pre_close' not in df.columns:
+                        df["pre_close"] = df["close"].shift(1)
+                        # 2. 筛选pre_close为空的行（首行），单独修复
+                        mask_nan = df["pre_close"].isna()  # 标记NaN行
+                        # 空行pre_close赋值为当日开盘价
+                        df.loc[mask_nan, "pre_close"] = df.loc[mask_nan, "open"]
+
+                    # 今日涨跌额（元）
+                    if 'change' not in df.columns:
+                        df["change"] = df["close"] - df["pre_close"]
+                    # 今日涨跌幅（百分比）
+                    if 'pct_chg' not in df.columns:
+                        df["pct_chg"] = ((df["close"] - df["pre_close"]) / df["pre_close"] * 100).round(4)
+                    
                     df['date'] = pd.to_datetime(df['date'])
                     # 腾讯 amount 成交股数（单位：股），直接作为成交量（单位：股）
                     if 'volume' not in df.columns and 'amount' in df.columns:
@@ -162,7 +181,7 @@ class DataSourceManager:
                                 end_date=end_date,
                                 adj=adj
                             )
-
+            # 返回列格式：ts_code       date   open   high    low  close  pre_close  change  pct_chg       volume        amount
             # 直接使用 requests 调用 API（绕过 tushare 库的问题）
             # import requests
             # req_params = {
@@ -210,11 +229,19 @@ class DataSourceManager:
                 # 标准化列名和数据格式
                 df = df.rename(columns={
                     'trade_date': 'date',
+                    'open': 'open',
+                    'high': 'high',
+                    'low': 'low',
+                    'close': 'close',
+                    'pre_close': 'pre_close',
+                    'change': 'change',
+                    'pct_chg': 'pct_chg',
                     'vol': 'volume',
                     'amount': 'amount'
                 })
                 df['date'] = pd.to_datetime(df['date'])
-                df = df.sort_values('date')
+                # 按日期排序（确保按日期顺序，从早到晚）
+                df = df.sort_values('date', ascending=True).reset_index(drop=True)
                 
                 # 转换成交量单位（tushare单位是手，转换为股）
                 df['volume'] = df['volume'] * 100
@@ -225,7 +252,6 @@ class DataSourceManager:
                 return df
         except Exception as e:
             self.logger.error(f"[Tushare] ❌ 获取失败: {e} 错误类型: {type(e).__name__}")
-            import traceback
             self.logger.error(f"[Tushare] 完整错误堆栈:\n{traceback.format_exc()}")
         
         return None
@@ -289,38 +315,15 @@ class DataSourceManager:
             "Total_share_capital": "N/A",
             "tradable_share_capital": "N/A"
         }
-        
-        @retry_on_failure(max_retries=3, base_delay=2.0, exceptions=(Exception,))
-        def _fetch_akshare_stock_info(symbol):
-            import akshare as ak
-            import functools
-            # 动态修补 akshare 内部请求模块
-            try:
-                if hasattr(ak, 'request') and hasattr(ak.request, 'make_request_with_retry_json'):
-                    _orig_retry = ak.request.make_request_with_retry_json
-                    
-                    @functools.wraps(_orig_retry)
-                    def _patched_retry(url, params=None, headers=None, proxies=None, max_retries=3, retry_delay=1):
-                        if headers is None:
-                            headers = {}
-                        from utils.akshare_helper import DEFAULT_HEADERS, USER_AGENTS
-                        import random
-                        final_headers = dict(DEFAULT_HEADERS)
-                        final_headers['User-Agent'] = random.choice(USER_AGENTS)
-                        final_headers.update(headers)
-                        return _orig_retry(url, params=params, headers=final_headers,
-                                           proxies=proxies, max_retries=max_retries, retry_delay=retry_delay)
-                    
-                    ak.request.make_request_with_retry_json = _patched_retry
-            except (AttributeError, ImportError):
-                pass
-            
-            return ak.stock_individual_info_em(symbol=symbol)
-        
+
         try:
+            import akshare as ak
             self.logger.info(f"[Akshare-东方财富] 正在获取 {symbol} 的基本信息...")
             
-            stock_info = _fetch_akshare_stock_info(symbol)
+            stock_info = None
+            with RequestsPatcher():
+                stock_info = ak.stock_individual_info_em(symbol=symbol)
+
             self.logger.info(f"[Akshare-东方财富] 获取到基本信息:\n {stock_info} ")
 
             if stock_info is not None and not stock_info.empty:
@@ -349,6 +352,7 @@ class DataSourceManager:
                 return info
         except Exception as e:
             self.logger.error(f"[Akshare-东方财富] ❌ 获取失败: {e}")
+            self.logger.error(f"[Tushare] 完整错误堆栈:\n{traceback.format_exc()}")
 
         return info
 
@@ -384,7 +388,7 @@ class DataSourceManager:
                 'Referer': 'https://finance.sina.com.cn/',
             }
             r = req.get(url, headers=headers, timeout=10)
-            self.logger.info(f"[新浪个股] 获取到基本信息:\n{r.text} ")
+            self.logger.info(f"[新浪个股] 获取到基本信息（实时信息）:\n{r.text} ")
             # 返回格式: var hq_str_sh603212="名称,open,pre_close,current,...";
             if r.status_code == 200 and f'hq_str_{tx_code}' in r.text:
                 # 提取引号内的数据
@@ -402,7 +406,7 @@ class DataSourceManager:
                         info['volume'] = fields[8]
                         info['amount'] = fields[9]
                         info['market'] = '中国A股'
-                        self.logger.info(f"[新浪个股] ✅ 成功获取基本信息: {info['name']}")
+                        self.logger.info(f"[新浪个股] ✅ 成功获取基本信息: {info}")
                         return info
         except Exception as e:
             self.logger.error(f"[新浪个股] ❌ 获取失败: {e}")
@@ -447,6 +451,7 @@ class DataSourceManager:
                 info['industry'] = df.iloc[0]['industry']
                 info['market'] = df.iloc[0]['market']
                 info['list_date'] = df.iloc[0]['list_date']
+                info['area'] = df.iloc[0]['area']
                 
                 self.logger.info(f"[Tushare] ✅ 成功获取基本信息")
                 return info
@@ -631,7 +636,7 @@ class DataSourceManager:
                                 quotes['change_percent'] = round(
                                     (quotes['change'] / quotes['pre_close']) * 100, 2
                                 )
-                            self.logger.info(f"[新浪个股] ✅ 成功获取实时行情: {quotes['name']} {quotes['price']}")
+                            self.logger.info(f"[新浪个股] ✅ 成功获取实时行情:\n {quotes}")
                             return quotes
             except Exception as e:
                 self.logger.error(f"[新浪个股] ❌ 获取失败: {e}")
@@ -657,10 +662,15 @@ class DataSourceManager:
             self.logger.info(f"[Tushare] 正在获取 {symbol} 的实时行情（备用数据源）...")
             
             ts_code = self._convert_to_ts_code(symbol)
+
+            start_date = (datetime.now() - timedelta(days=1)).strftime('%Y%m%d')
+            end_date = datetime.now().strftime('%Y%m%d')
+
+            # 历史日线数据
             df = self.tushare_api.daily(
                 ts_code=ts_code,
-                start_date=datetime.now().strftime('%Y%m%d'),
-                end_date=datetime.now().strftime('%Y%m%d')
+                start_date=start_date,
+                end_date=end_date
             )
             
             if df is not None and not df.empty:
@@ -676,7 +686,7 @@ class DataSourceManager:
                     'open': row['open'],
                     'pre_close': row['pre_close']
                 }
-                self.logger.info(f"[Tushare] ✅ 成功获取实时行情")
+                self.logger.info(f"[Tushare] ✅ 成功获取实时行情:\n{quotes}")
                 return quotes
         except Exception as e:
             self.logger.error(f"[Tushare] ❌ 获取失败: {e}")
@@ -905,11 +915,11 @@ class DataSourceManager:
         df = None
         try:
             self.logger.info(f"[Tushare] 正在获取资金流向数据（备用数据源）...")
-            ts_code = data_source_manager._convert_to_ts_code(symbol)
+            ts_code = self._convert_to_ts_code(symbol)
             
             # 计算日期范围（最近N个交易日）
             end_date = datetime.now().strftime('%Y%m%d')
-            start_date = (datetime.now() - timedelta(days=self.days * 2)).strftime('%Y%m%d')
+            start_date = (datetime.now() - timedelta(days=self.days)).strftime('%Y%m%d')
             
             # 获取资金流向数据
             df = self.tushare_api.moneyflow(
@@ -1189,7 +1199,7 @@ if __name__ == "__main__":
             start_time = time.time()
             info = data_source_manager._get_stock_basic_info_tushare(symbol)
             elapsed = time.time() - start_time
-            if info is not None:
+            if info['name'] != "N/A":
                 print(f"  {symbol}: 成功获取信息，公司名称: {info.get('name', '未知')}，耗时 {elapsed:.2f}s")
             else:
                 print(f"  {symbol}: 获取失败")
@@ -1205,7 +1215,7 @@ if __name__ == "__main__":
             start_time = time.time()
             info = data_source_manager._get_stock_basic_info_tushare2(symbol)
             elapsed = time.time() - start_time
-            if info is not None:
+            if info['name'] != "N/A":
                 print(f"  {symbol}: 成功获取信息，公司名称: {info.get('name', '未知')}，耗时 {elapsed:.2f}s")
             else:
                 print(f"  {symbol}: 获取失败")
@@ -1218,7 +1228,7 @@ if __name__ == "__main__":
             start_time = time.time()
             quotes = data_source_manager._get_realtime_quotes_akshare(symbol)
             elapsed = time.time() - start_time
-            if quotes is not None:
+            if quotes != {}:
                 print(f"  {symbol}: 成功获取报价，价格: {quotes.get('price', '未知')}，耗时 {elapsed:.2f}s")
             else:
                 print(f"  {symbol}: 获取失败")
@@ -1231,7 +1241,7 @@ if __name__ == "__main__":
             start_time = time.time()
             quotes = data_source_manager._get_realtime_quotes_sina(symbol)
             elapsed = time.time() - start_time
-            if quotes is not None:
+            if quotes != {}:
                 print(f"  {symbol}: 成功获取报价，价格: {quotes.get('price', '未知')}，耗时 {elapsed:.2f}s")
             else:
                 print(f"  {symbol}: 获取失败")
@@ -1247,7 +1257,7 @@ if __name__ == "__main__":
             start_time = time.time()
             quotes = data_source_manager._get_realtime_quotes_tushare(symbol)
             elapsed = time.time() - start_time
-            if quotes is not None:
+            if quotes != {}:
                 print(f"  {symbol}: 成功获取报价，价格: {quotes.get('price', '未知')}，耗时 {elapsed:.2f}s")
             else:
                 print(f"  {symbol}: 获取失败")
@@ -1257,7 +1267,7 @@ if __name__ == "__main__":
         print("\n=== 测试 _get_financial_data_akshare ===")
         symbols = ["688549", "600036"]
         for symbol in symbols:
-            for report_type in ['income', 'balance', 'cash']:
+            for report_type in ['income', 'balance', 'cashflow']:
                 start_time = time.time()
                 df = data_source_manager._get_financial_data_akshare(symbol, report_type=report_type)
                 elapsed = time.time() - start_time
@@ -1274,7 +1284,7 @@ if __name__ == "__main__":
             return
         symbols = ["688549", "600036"]
         for symbol in symbols:
-            for report_type in ['income', 'balance', 'cash']:
+            for report_type in ['income', 'balance', 'cashflow']:
                 start_time = time.time()
                 df = data_source_manager._get_financial_data_tushare(symbol, report_type=report_type)
                 elapsed = time.time() - start_time
@@ -1360,22 +1370,22 @@ if __name__ == "__main__":
     print("=" * 60)
     
     # 私有方法测试
-    test__get_stock_hist_data_akshare()
-    test__get_stock_hist_data_tushare()
-    test__get_stock_basic_info_akshare()
-    test__get_stock_basic_info_sina()
-    test__get_stock_basic_info_tushare()
-    test__get_stock_basic_info_tushare2()
-    test__get_realtime_quotes_akshare()
-    test__get_realtime_quotes_sina()
-    test__get_realtime_quotes_tushare()
-    test__get_financial_data_akshare()
-    test__get_financial_data_tushare()
-    test__convert_to_ts_code()
-    test__convert_from_ts_code()
-    test__convert_to_tx_code()
-    test__get_individual_fund_flow_akshare()
-    test__get_individual_fund_flow_tushare()
+    #test__get_stock_hist_data_akshare()
+    #test__get_stock_hist_data_tushare()
+# NG    test__get_stock_basic_info_akshare()
+    # 实时行情 test__get_stock_basic_info_sina()
+# 次数受限    test__get_stock_basic_info_tushare()
+# 返回空数据，且次数受限    test__get_stock_basic_info_tushare2()
+# NG    test__get_realtime_quotes_akshare()
+    # test__get_realtime_quotes_sina()
+    #test__get_realtime_quotes_tushare() # 非实时行情
+    #test__get_financial_data_akshare()
+# 权限不够    test__get_financial_data_tushare()
+    # test__convert_to_ts_code()
+    # test__convert_from_ts_code()
+    # test__convert_to_tx_code()
+    # test__get_individual_fund_flow_akshare()
+# 权限不够        test__get_individual_fund_flow_tushare()
         
     # 基础功能测试
     test_get_stock_hist_data()
