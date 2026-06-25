@@ -19,7 +19,7 @@ load_dotenv()
 # 解决东方财富服务器 RemoteDisconnected 问题
 # ============================================================
 from utils.akshare_helper import RequestsPatcher
-# patch_requests()
+
 
 class DataSourceManager:
     """数据源管理器 - 实现akshare与tushare自动切换"""
