@@ -1,9 +1,10 @@
 """
-tushare 数据获取模块
-使用 tushare 库获取股票数据
+baostock 数据获取模块
+使用 baostock 库获取股票数据
+pip install baostock
 """
 import os
-import tushare as ts
+import baostock as bs
 from datetime import datetime, timedelta
 import pandas as pd
 import log_utils
@@ -13,26 +14,94 @@ from dotenv import load_dotenv
 # 加载环境变量
 load_dotenv()
 
-class TushareDataFetcher:
-    """基于 tushare 的股票数据获取类"""
+
+##########################################
+#2. 获取股票基本信息
+import baostock as bs
+import pandas as pd
+
+# 登录系统（每次请求前必须调用）
+lg = bs.login()
+print(f'登录状态: error_code={lg.error_code}, error_msg={lg.error_msg}')
+
+# 获取单只股票的基本信息（例如浦发银行）
+rs = bs.query_stock_basic(code="sh.600000")
+# 也可以通过名称查询：rs = bs.query_stock_basic(code_name="浦发银行")
+
+data_list = []
+while (rs.error_code == '0') & rs.next():
+    data_list.append(rs.get_row_data())
+
+result = pd.DataFrame(data_list, columns=rs.fields)
+print("=== 股票基本信息 ===")
+print(result)
+
+# 登出系统（操作完成后建议调用）
+bs.logout()
+
+
+#3. 获取历史行情数据（支持复权）
+import baostock as bs
+import pandas as pd
+
+lg = bs.login()
+
+# 获取贵州茅台（sh.600519）2023年的前复权日线数据
+rs = bs.query_history_k_data_plus(
+    "sh.600519",
+    "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST",
+    start_date="2023-01-01",
+    end_date="2023-12-31",
+    frequency="d",       # 'd'日线, 'w'周线, 'm'月线, '5'/'15'/'30'/'60'分钟线
+    adjustflag="2"       # 复权类型：1-后复权，2-前复权，3-不复权（默认）
+)
+
+data_list = []
+while (rs.error_code == '0') & rs.next():
+    data_list.append(rs.get_row_data())
+
+df = pd.DataFrame(data_list, columns=rs.fields)
+
+# 数据类型转换（Baostock返回的数据默认都是字符串类型）
+df['date'] = pd.to_datetime(df['date'])
+df[['open', 'high', 'low', 'close', 'preclose', 'volume', 'amount', 'turn', 'pctChg']] = df[
+    ['open', 'high', 'low', 'close', 'preclose', 'volume', 'amount', 'turn', 'pctChg']].astype(float)
+
+print("=== 历史行情数据 ===")
+print(df.head())
+
+bs.logout()
+
+#4. 获取实时行情数据
+import baostock as bs
+import time
+
+rd = bs.BaoStock()
+ret, error_info = rd.login()
+
+if ret == 'success':
+    # 订阅实时行情数据（例如浦发银行）
+    data_set = rd.subscribe_realtime_data('sh600000')
+    
+    # 持续接收并打印最新数据（这里仅循环5次作为演示）
+    count = 0
+    while data_set.error_code == '0' and count < 5:
+        data_set.next()
+        print("实时数据:", data_set.get_row_data())
+        time.sleep(2)  # 暂停2秒，避免过于频繁的请求
+        count += 1
+else:
+    print("登录失败:", error_info)
+
+rd.logout()
+##########################################
+class BaostockDataFetcher:
+    """基于 baostock 的股票数据获取类"""
     
     def __init__(self):
         self.logger = log_utils.get_logger(__name__)
-        self.tushare_token = os.getenv('TUSHARE_TOKEN', '')
-        self.tushare_available = False
-        self.tushare_api = None
-        # 初始化tushare
-        if self.tushare_token:
-            try:
-                ts.set_token(self.tushare_token)
-                self.tushare_api = ts.pro_api()
-                self.tushare_available = True
-                self.logger.info("✅ Tushare数据源初始化成功")
-            except Exception as e:
-                self.logger.error(f"⚠️ Tushare数据源初始化失败: {e}")
-                self.tushare_available = False
-        else:
-            self.logger.error("ℹ️ 未配置Tushare Token，Tushare数据源初始化失败")
+        self.logger.info("✅ Baostock数据源初始化成功")
+           
     
     def _convert_to_ts_code(self, symbol):
         """

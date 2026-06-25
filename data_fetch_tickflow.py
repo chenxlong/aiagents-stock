@@ -16,7 +16,7 @@ class TickFlowDataFetcher:
         self.tf_free = TickFlow.free()
         self.logger.info("TickFlow 免费客户端初始化成功")
     
-    def get_stock_info(self, symbol):
+    def get_stock_basic_info(self, symbol):
         """
         获取个股基本信息
         
@@ -56,7 +56,7 @@ class TickFlowDataFetcher:
 
         return info
     
-    def get_stock_hist_data(self, symbol, period="1y", adjust="qfq"):
+    def get_stock_history_data(self, symbol, period="1y", adjust="qfq"):
         """
         获取个股历史数据
         
@@ -154,12 +154,12 @@ if __name__ == '__main__':
     
     # 1. 测试获取基本信息
     print(f"\n1. 获取 {test_symbol} 的基本信息:")
-    info = tickflow_fetcher.get_stock_info(test_symbol)
+    info = tickflow_fetcher.get_stock_basic_info(test_symbol)
     print(f"基本信息: {info}")
     
     # 2. 测试获取历史数据
     print(f"\n2. 获取 {test_symbol} 的历史数据:")
-    hist_data = tickflow_fetcher.get_stock_hist_data(test_symbol, period="1mo")
+    hist_data = tickflow_fetcher.get_stock_history_data(test_symbol, period="1mo")
     print(f"历史数据形状: {hist_data.shape}")
     if not hist_data.empty:
         print(f"最近5天数据:\n{hist_data.tail()}")

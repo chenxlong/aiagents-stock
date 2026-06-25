@@ -2,14 +2,13 @@
 AkShare 数据获取模块
 使用 AkShare 库获取股票数据
 """
-
-from akshare_helper import requests_patcher
+import time
+from utils.akshare_helper import RequestsPatcher
 import akshare as ak
 from datetime import datetime, timedelta
 import pandas as pd
 import log_utils
-from utils.akshare_helper import RequestsPatcher
-
+import traceback
 
 class AkShareDataFetcher:
     """基于 AkShare 的股票数据获取类"""
@@ -41,7 +40,7 @@ class AkShareDataFetcher:
         else:
             return f"sz{symbol}"
 
-    def get_stock_hist_data_akshare(self, symbol, start_date=None, end_date=None, adjust='qfq'):
+    def get_stock_history_data_akshare(self, symbol, start_date=None, end_date=None, adjust='qfq'):
         """
         使用akshare数据源，获取股票历史数据
         
@@ -155,8 +154,21 @@ class AkShareDataFetcher:
             self.logger.info(f"[Akshare-东方财富] 正在获取 {symbol} 的基本信息...")
             
             stock_info = None
-            with RequestsPatcher():
-                stock_info = ak.stock_individual_info_em(symbol=symbol)
+
+            for retry_count in range(3):
+                try:
+                    with RequestsPatcher():
+                        stock_info = ak.stock_individual_info_em(symbol=symbol)
+                        break  # 成功获取到基本信息，跳出循环
+                except Exception as e:
+                    self.logger.error(f"[Akshare-东方财富] ❌ 获取失败: {e}")
+                    if retry_count < 2:
+                        delay = (retry_count + 1) * 2
+                        self.logger.info(f"[Akshare-东方财富] ⏳ {delay}s 后重试...")
+                        time.sleep(delay)
+                    else:
+                        self.logger.error(f"[Akshare-东方财富] ❌ 已重试 3 次，放弃")
+                        return info
 
             self.logger.info(f"[Akshare-东方财富] 获取到基本信息:\n {stock_info} ")
 
@@ -190,15 +202,15 @@ class AkShareDataFetcher:
 
         return info
 
-    def get_stock_basic_info_sina(self, symbol):
+    def get_stock_realtime_info_sina(self, symbol):
         """
-        使用新浪财经数据源，获取股票基本信息
+        使用新浪财经数据源，获取股票实时信息
         
         Args:
             symbol: 股票代码
             
         Returns:
-            dict: 股票基本信息
+            dict: 股票实时信息
         """
         info = {
             "symbol": symbol,
@@ -212,7 +224,7 @@ class AkShareDataFetcher:
             "Total_share_capital": "N/A",
             "tradable_share_capital": "N/A"
         }
-         # 尝试新浪单只股票接口获取名称
+         # 尝试新浪单只股票接口获取实时信息
         try:
             import requests as req
             tx_code = self._convert_to_tx_code(symbol)
@@ -222,7 +234,7 @@ class AkShareDataFetcher:
                 'Referer': 'https://finance.sina.com.cn/',
             }
             r = req.get(url, headers=headers, timeout=10)
-            self.logger.info(f"[新浪个股] 获取到基本信息（实时信息）:\n{r.text} ")
+            self.logger.info(f"[新浪个股] 获取到实时信息:\n{r.text} ")
             # 返回格式: var hq_str_sh603212="名称,open,pre_close,current,...";
             if r.status_code == 200 and f'hq_str_{tx_code}' in r.text:
                 # 提取引号内的数据
@@ -240,37 +252,48 @@ class AkShareDataFetcher:
                         info['volume'] = fields[8]
                         info['amount'] = fields[9]
                         info['market'] = '中国A股'
-                        self.logger.info(f"[新浪个股] ✅ 成功获取基本信息: {info}")
+                        self.logger.info(f"[新浪个股] ✅ 成功获取实时信息: {info}")
                         return info
         except Exception as e:
             self.logger.error(f"[新浪个股] ❌ 获取失败: {e}")
 
         return info
 
+akshare_data_fetcher = AkShareDataFetcher()
+    
 if __name__ == '__main__':
     # 测试代码
     print("=" * 50)
-    print("TickFlow 数据获取测试")
+    print("Akshare 数据获取测试")
     print("=" * 50)
+
+    import logging
+    # 设置日志级别为 DEBUG，以便在控制台看到详细日志
+    log_utils.setup_root_logger(
+        root_log_level=logging.DEBUG,
+        console_level=logging.DEBUG,  # 控制台显示 DEBUG 级别
+        file_level=logging.DEBUG
+    )
     
     # 测试股票代码
     test_symbol = "688549"  # 中巨芯
     
-    # 1. 测试获取基本信息
+    # 1. 测试获取基本信息(东方财富  
+    # NG  ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response')))
     print(f"\n1. 获取 {test_symbol} 的基本信息:")
-    info = get_stock_info(test_symbol)
+    info = akshare_data_fetcher.get_stock_basic_info_akshare(test_symbol)
     print(f"基本信息: {info}")
     
     # 2. 测试获取历史数据
     print(f"\n2. 获取 {test_symbol} 的历史数据:")
-    hist_data = get_stock_hist_data(test_symbol, period="1mo")
+    hist_data = akshare_data_fetcher.get_stock_history_data_akshare(test_symbol,start_date="20260601",end_date="20260630",adjust="qfq")
     print(f"历史数据形状: {hist_data.shape}")
     if not hist_data.empty:
         print(f"最近5天数据:\n{hist_data.tail()}")
     
     # 3. 测试获取实时数据
     print(f"\n3. 获取 {test_symbol} 的实时信息:")
-    realtime = get_stock_realtime_data(test_symbol)
+    realtime = akshare_data_fetcher.get_stock_realtime_info_sina(test_symbol)
     print(f"实时信息: {realtime}")
     
     print("\n" + "=" * 50)
