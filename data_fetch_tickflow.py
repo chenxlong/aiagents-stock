@@ -56,32 +56,39 @@ class TickFlowDataFetcher:
 
         return info
     
-    def get_stock_history_data(self, symbol, period="1y", adjust="qfq"):
+    def get_stock_history_data(self, symbol, start_date, end_date, adjust="qfq"):
         """
         获取个股历史数据
-        
         Args:
-            symbol: 股票代码（格式：688549.SH 或 000001.SZ）
-            period: 时间周期，支持 "1y"(1年), "6mo"(6个月), "3mo"(3个月), "1mo"(1个月)
-            adjust: 复权类型，"qfq"(前复权), "hfq"(后复权), ""(不复权)
+            symbol: 股票代码（6位数字）
+            start_date: 开始日期（格式：'20240101'或'2024-01-01'）
+            end_date: 结束日期
+            adjust: 复权类型（'qfq'前复权, 'hfq'后复权, ''不复权）
             
         Returns:
             DataFrame: 包含历史数据的DataFrame，包含日期、开盘、收盘、最高、最低、成交量等列
         """
-        self.logger.debug(f"开始获取股票 {symbol} 的历史数据，周期: {period}, 复权: {adjust}")
+        self.logger.debug(f"开始获取股票 {symbol} 的历史数据，日期范围: {start_date} - {end_date}, 复权: {adjust}")
 
         hist_data_df = pd.DataFrame()
-        try:            
-            # 计算日期范围
+        try:
+            # 日期转换2024-01-01格式到20240101格式
+            if '-' in start_date:
+                start_date = start_date.replace('-', '')
+            if '-' in end_date:
+                end_date = end_date.replace('-', '')
+
             kCount = 1
-            if period == "1y":
-                kCount = 365
-            elif period == "6mo":
-                kCount = 180
-            elif period == "3mo":
-                kCount = 90
-            elif period == "1mo":
-                kCount = 30
+            # 日期转换为datetime对象
+            start_date = datetime.strptime(start_date, "%Y%m%d")
+            end_date = datetime.strptime(end_date, "%Y%m%d")
+            # 计算日期[start_date, end_date]范围内内的日线数量，至少1条
+            if start_date > end_date:
+                self.logger.error(f"开始日期 {start_date} 不能晚于结束日期 {end_date}")
+                return hist_data_df
+            else:
+                kCount = (end_date - start_date).days + 1
+            kCount = max(kCount, 1)
            
             kAdjust = "forward"
             if adjust == "qfq":
@@ -130,9 +137,6 @@ class TickFlowDataFetcher:
         except Exception as e:
             self.logger.error(f"获取股票 {symbol} 历史数据失败: {e}")
             return hist_data_df
-        
-# 创建全局实例
-tickflow_fetcher = TickFlowDataFetcher()
 
 
 if __name__ == '__main__':
@@ -148,7 +152,9 @@ if __name__ == '__main__':
         console_level=logging.DEBUG,  # 控制台显示 DEBUG 级别
         file_level=logging.DEBUG
     )
-    
+
+    # 创建全局实例
+    tickflow_fetcher = TickFlowDataFetcher()
     # 测试股票代码
     test_symbol = "688549.SH"  # 中巨芯
     

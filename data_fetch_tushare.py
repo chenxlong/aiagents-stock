@@ -34,7 +34,7 @@ class TushareDataFetcher:
         else:
             self.logger.error("ℹ️ 未配置Tushare Token，Tushare数据源初始化失败")
     
-    def _convert_to_ts_code(self, symbol):
+    def convert_to_ts_code(self, symbol):
         """
         将6位股票代码转换为tushare格式（带市场后缀）
         
@@ -60,7 +60,9 @@ class TushareDataFetcher:
         else:
             # 默认深圳
             return f"{symbol}.SZ"
-            
+    
+
+    ## 是不复权的历史数据
     def get_stock_history_data_tushare(self, symbol, start_date=None, end_date=None, adjust='qfq'):
         """
         使用tushare数据源，获取股票历史数据
@@ -74,11 +76,15 @@ class TushareDataFetcher:
         Returns:
             DataFrame: 包含日期、开盘、收盘、最高、最低、成交量等列
         """
+        if not self.tushare_available:
+            self.logger.warning(f"⚠️ Tushare数据源未初始化，无法获取 {symbol} 的历史数据")
+            return None
+        
         try:
             self.logger.info(f"[Tushare] 正在获取 {symbol} 的历史数据（备用数据源）...")
             
             # 转换股票代码格式（添加市场后缀）
-            ts_code = self._convert_to_ts_code(symbol)
+            ts_code = self.convert_to_ts_code(symbol)
             
             # 转换复权类型
             adj_dict = {'qfq': 'qfq', 'hfq': 'hfq', '': None}
@@ -136,6 +142,7 @@ class TushareDataFetcher:
         
         return None
 
+    ##  基本不可用 第一次成功 (stock_basic)频率超限(1次/小时)，
     def get_stock_basic_info_tushare(self, symbol):
         """
         使用tushare数据源，获取股票基本信息
@@ -146,6 +153,11 @@ class TushareDataFetcher:
         Returns:
             dict: 股票基本信息
         """
+
+        if not self.tushare_available:
+            self.logger.warning(f"⚠️ Tushare数据源未初始化，无法获取 {symbol} 的基本信息")
+            return None
+
         info = {
             "symbol": symbol,
             "name": "N/A",
@@ -155,14 +167,14 @@ class TushareDataFetcher:
             "list_date": "N/A",
             "market_cap": "N/A",
             "circulating_market_cap": "N/A",
-            "Total_share_capital": "N/A",
+            "total_share_capital": "N/A",
             "tradable_share_capital": "N/A"
         }
 
         try:
             self.logger.info(f"[Tushare] 正在获取 {symbol} 的基本信息（备用数据源）...")
             
-            ts_code = self._convert_to_ts_code(symbol)
+            ts_code = self.convert_to_ts_code(symbol)
             # stock_basic：股票基础信息
             df = self.tushare_api.stock_basic(
                 ts_code=ts_code,
@@ -184,6 +196,8 @@ class TushareDataFetcher:
 
         return info
 
+
+    ## 基本不可用 第一次成功 (daily_basic)频率超限(1次/小时)
     def get_stock_basic_info_tushare2(self, symbol):
         """
         使用tushare数据源，获取股票详细信息
@@ -194,6 +208,10 @@ class TushareDataFetcher:
         Returns:
             dict: 股票详细信息
         """
+        if not self.tushare_available:
+            self.logger.warning(f"⚠️ Tushare数据源未初始化，无法获取 {symbol} 的详细信息")
+            return None
+
         info = {
             "symbol": symbol,
             "name": "N/A",
@@ -209,7 +227,7 @@ class TushareDataFetcher:
 
         self.logger.info(f"[Tushare] 尝试获取详细信息（tushare）...")
         try:
-            ts_code = self._convert_to_ts_code(symbol)
+            ts_code = self.convert_to_ts_code(symbol)
             # daily_basic：每日的基础面和技术面指标
             df = self.tushare_api.daily_basic(
                 ts_code=ts_code,
@@ -228,6 +246,7 @@ class TushareDataFetcher:
 
         return info
 
+    ## 非实时数据，基本不可用 第一次成功 (daily)频率超限(1次/小时)
     def get_stock_realtime_data_tushare(self, symbol):
         """
         使用tushare数据源，获取股票实时数据
@@ -238,6 +257,11 @@ class TushareDataFetcher:
         Returns:
             dict: 股票实时数据
         """
+
+        if not self.tushare_available:
+            self.logger.warning(f"⚠️ Tushare数据源未初始化，无法获取 {symbol} 的实时数据")
+            return None
+
         realtime_data = {
             "symbol": symbol,
             "current_price": "N/A",
@@ -257,7 +281,7 @@ class TushareDataFetcher:
         try:
             self.logger.info(f"[Tushare] 正在获取 {symbol} 的实时数据...")
             
-            ts_code = self._convert_to_ts_code(symbol)
+            ts_code = self.convert_to_ts_code(symbol)
             # daily：日线行情数据
             df = self.tushare_api.daily(
                 ts_code=ts_code,
@@ -283,10 +307,95 @@ class TushareDataFetcher:
 
         return realtime_data
 
+    # 权限不够 无法获取  请在tushare官网申请权限
+    def get_financial_data_tushare(self, symbol, report_type='income'):
+        """
+        获取财务数据（tushare）
+        
+        Args:
+            symbol: 股票代码
+            report_type: 报表类型（'income'利润表, 'balance'资产负债表, 'cashflow'现金流量表）
+            
+        Returns:
+            DataFrame: 财务数据
+        """
+        if not self.tushare_available:
+            self.logger.warning(f"⚠️ Tushare数据源未初始化，无法获取 {symbol} 的财务数据")
+            return None
 
+        df = None
+        try:
+            self.logger.info(f"[Tushare] 正在获取 {symbol} 的财务数据（备用数据源）...")
+            
+            ts_code = self._convert_to_ts_code(symbol)
+            
+            if report_type == 'income':
+                df = self.tushare_api.income(ts_code=ts_code)
+            elif report_type == 'balance':
+                df = self.tushare_api.balancesheet(ts_code=ts_code)
+            elif report_type == 'cashflow':
+                df = self.tushare_api.cashflow(ts_code=ts_code)
+            else:
+                df = None
+            
+            if df is not None and not df.empty:
+                self.logger.info(f"[Tushare] ✅ 成功获取财务数据:\n{df}")
+                return df
+        except Exception as e:
+            self.logger.error(f"[Tushare] ❌ 获取失败: {e}")
+        
+        return df
 
-# 创建全局实例
-tushare_fetcher = TushareDataFetcher()
+    # 权限不够 无法获取  请在tushare官网申请权限
+    def get_individual_fund_flow_tushare(self, symbol, market):
+        """获取个股资金流向数据（tushare）"""
+        if not self.tushare_available:
+            self.logger.warning(f"⚠️ Tushare数据源未初始化，无法获取 {symbol} 的资金流向数据")
+            return None
+        
+        df = None
+        try:
+            self.logger.info(f"[Tushare] 正在获取资金流向数据（备用数据源）...")
+            ts_code = self._convert_to_ts_code(symbol)
+            
+            # 计算日期范围（最近N个交易日）
+            end_date = datetime.now().strftime('%Y%m%d')
+            start_date = (datetime.now() - timedelta(days=self.days)).strftime('%Y%m%d')
+            
+            # 获取资金流向数据
+            df = self.tushare_api.moneyflow(
+                ts_code=ts_code,
+                start_date=start_date,
+                end_date=end_date
+            )
+            self.logger.info(f"[Tushare] -资金流向原始数据: {df}")
+            
+            if df is not None and not df.empty:
+                # 标准化列名以匹配akshare格式
+                df = df.rename(columns={
+                    'trade_date': '日期',
+                    'buy_sm_amount': '小单买入',
+                    'sell_sm_amount': '小单卖出',
+                    'buy_md_amount': '中单买入',
+                    'sell_md_amount': '中单卖出',
+                    'buy_lg_amount': '大单买入',
+                    'sell_lg_amount': '大单卖出',
+                    'buy_elg_amount': '超大单买入',
+                    'sell_elg_amount': '超大单卖出',
+                    'net_mf_amount': '净额'
+                })
+                
+                # 限制为最近N天
+                df = df.head(self.days)
+                self.logger.info(f"[Tushare] ✅ 成功获取 {len(df)} 条资金流向数据")
+            else:
+                self.logger.warning(f"[Tushare] ❌ 未找到资金流向数据")
+                return None
+        except Exception as te:
+            self.logger.error(f"[Tushare] ❌ 获取失败: {te}")
+            return None
+        return df
+
 
 if __name__ == '__main__':
     # 测试代码
@@ -302,6 +411,8 @@ if __name__ == '__main__':
         file_level=logging.DEBUG
     )
 
+    # 创建全局实例
+    tushare_fetcher = TushareDataFetcher()
     # 测试股票代码
     test_symbol = "688549"  # 中巨芯
     

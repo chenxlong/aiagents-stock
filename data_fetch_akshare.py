@@ -10,7 +10,7 @@ import pandas as pd
 import log_utils
 import traceback
 
-class AkShareDataFetcher:
+class AkshareDataFetcher:
     """基于 AkShare 的股票数据获取类"""
     
     def __init__(self):
@@ -126,6 +126,7 @@ class AkShareDataFetcher:
                     self.logger.error(f"[Akshare-腾讯] ❌ 已重试 3 次，放弃")
         return None
 
+    ## 基本不可用（第一次可用）  ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response')))
     def get_stock_basic_info_akshare(self, symbol):
         """
         使用akshare数据源，获取股票基本信息
@@ -145,7 +146,7 @@ class AkShareDataFetcher:
             "list_date": "N/A",
             "market_cap": "N/A",
             "circulating_market_cap": "N/A",
-            "Total_share_capital": "N/A",
+            "total_share_capital": "N/A",
             "tradable_share_capital": "N/A"
         }
 
@@ -190,7 +191,7 @@ class AkShareDataFetcher:
                     elif key == '最新':
                         info['current_price'] = value
                     elif key == '总股本':
-                        info['Total_share_capital'] = value
+                        info['total_share_capital'] = value
                     elif key == '流通股':
                         info['tradable_share_capital'] = value
                 
@@ -259,8 +260,72 @@ class AkShareDataFetcher:
 
         return info
 
-akshare_data_fetcher = AkShareDataFetcher()
+    def _get_realtime_quotes_akshare(self, symbol):
+        """
+        获取实时行情数据（akshare）
+        
+        Args:
+            symbol: 股票代码
+            
+        Returns:
+            dict: 实时行情数据
+        """
+        quotes = {}
+        try:
+            import akshare as ak
+            self.logger.info(f"[Akshare-东方财富] 正在获取 {symbol} 的实时行情...")
+            
+            df = ak.stock_zh_a_spot_em()
+            stock_df = df[df['代码'] == symbol]
+            
+            if not stock_df.empty:
+                row = stock_df.iloc[0]
+                quotes = {
+                    'symbol': symbol,
+                    'name': row['名称'],
+                    'price': row['最新价'],
+                    'change_percent': row['涨跌幅'],
+                    'change': row['涨跌额'],
+                    'volume': row['成交量'],
+                    'amount': row['成交额'],
+                    'high': row['最高'],
+                    'low': row['最低'],
+                    'open': row['今开'],
+                    'pre_close': row['昨收']
+                }
+                self.logger.info(f"[Akshare-东方财富] ✅ 成功获取实时行情")
+                return quotes
+        except Exception as e:
+            self.logger.error(f"[Akshare-东方财富] ❌ 获取失败: {e}")
+        
+        return quotes
+
+
+    def get_individual_fund_flow_akshare(self, symbol, market):
+        """获取个股资金流向数据（akshare）"""
+        df = None
+        akshare_df = None
+        import akshare as ak
+        for retry_count in range(3):
+            try:
+                self.logger.info(f"[Akshare] 正在获取资金流向 (市场: {market})..." + (f" (第{retry_count+1}次)"))
+                
+                akshare_df = ak.stock_individual_fund_flow(stock=symbol, market=market)
+                self.logger.debug(f"   [Akshare] -资金流向原始数据: {akshare_df}")
+
+                if akshare_df is not None and not akshare_df.empty:
+                    self.logger.info(f"[Akshare] 获取到 {len(akshare_df)} 条资金流向数据")
+                    df = akshare_df
+                    break
+            except Exception as e:
+                self.logger.error(f"[Akshare] 获取失败: {e}")
+                if retry_count < 2:
+                    delay = (retry_count + 1) * 2
+                    self.logger.info(f"[Akshare] {delay}s 后重试...")
+                    time.sleep(delay)
+        return df
     
+
 if __name__ == '__main__':
     # 测试代码
     print("=" * 50)
@@ -275,6 +340,8 @@ if __name__ == '__main__':
         file_level=logging.DEBUG
     )
     
+    akshare_data_fetcher = AkshareDataFetcher()
+
     # 测试股票代码
     test_symbol = "688549"  # 中巨芯
     
