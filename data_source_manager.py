@@ -8,9 +8,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 import log_utils
 import traceback
-
-
-from utils.akshare_helper import RequestsPatcher
 from data_fetch_akshare import AkshareDataFetcher
 from data_fetch_tushare import TushareDataFetcher
 from data_fetch_baostock import BaostockDataFetcher
@@ -167,50 +164,9 @@ class DataSourceManager:
         quotes = self.tushare_fetcher.get_stock_realtime_data_tushare(symbol)
         if quotes != {}:
             return quotes
-            
         
         self.logger.error(f"❌ {symbol}获取实时行情数据失败")
         return quotes
-    
-    def _get_financial_data_akshare(self, symbol, report_type='income'):
-        """
-        获取财务数据（akshare）
-        
-        Args:
-            symbol: 股票代码
-            report_type: 报表类型（'income'利润表, 'balance'资产负债表, 'cashflow'现金流量表）
-            
-        Returns:
-            DataFrame: 财务数据
-        """
-        
-        df = None
-        # 使用akshare（带重试机制）
-        for retry_count in range(3):
-            try:
-                import akshare as ak
-                self.logger.info(f"[Akshare-新浪财经] 正在获取 {symbol} 的财务数据..." + (f" (第{retry_count+1}次)"))
-                
-                if report_type == 'income':
-                    df = ak.stock_financial_report_sina(stock=symbol, symbol="利润表")
-                elif report_type == 'balance':
-                    df = ak.stock_financial_report_sina(stock=symbol, symbol="资产负债表")
-                elif report_type == 'cashflow':
-                    df = ak.stock_financial_report_sina(stock=symbol, symbol="现金流量表")
-                else:
-                    df = None
-                
-                if df is not None and not df.empty:
-                    self.logger.info(f"[Akshare-新浪财经] ✅ 成功获取财务数据:\n{df}")
-                    return df
-            except Exception as e:
-                self.logger.error(f"[Akshare-新浪财经] ❌ 获取失败: {e}")
-                if retry_count < 2:
-                    delay = (retry_count + 1) * 2
-                    self.logger.info(f"[Akshare-新浪财经] ⏳ {delay}s 后重试...")
-                    time.sleep(delay)
-        return df
-    
     
 
     def get_financial_data(self, symbol, report_type='income'):
@@ -225,11 +181,11 @@ class DataSourceManager:
             DataFrame: 财务数据
         """
         # 优先使用akshare（带重试机制）
-        df = self._get_financial_data_akshare(symbol, report_type)
+        df = self.akshare_fetcher.get_financial_data_akshare(symbol, report_type)
         if df is not None:
             return df
         
-
+        # 数据源2，尝试tushare
         df = self.tushare_fetcher.get_financial_data_tushare(symbol, report_type)
         if df is not None:
             return df

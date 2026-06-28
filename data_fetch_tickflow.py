@@ -1,6 +1,7 @@
 """
 TickFlow 数据获取模块
 使用 TickFlow 库获取股票数据
+pip install tickflow
 """
 
 from tickflow import TickFlow
@@ -165,7 +166,7 @@ if __name__ == '__main__':
     
     # 2. 测试获取历史数据
     print(f"\n2. 获取 {test_symbol} 的历史数据:")
-    hist_data = tickflow_fetcher.get_stock_history_data(test_symbol, period="1mo")
+    hist_data = tickflow_fetcher.get_stock_history_data(test_symbol,  start_date="20260601", end_date="20260630", adjust="qfq")
     print(f"历史数据形状: {hist_data.shape}")
     if not hist_data.empty:
         print(f"最近5天数据:\n{hist_data.tail()}")

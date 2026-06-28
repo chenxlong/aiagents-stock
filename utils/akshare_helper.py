@@ -62,7 +62,7 @@ DEFAULT_HEADERS = {
         'image/avif,image/webp,image/apng,*/*;q=0.8'
     ),
     'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-    'Accept-Encoding': 'gzip, deflate, br',
+    # 'Accept-Encoding': 'gzip, deflate, br',
     'Connection': 'keep-alive',
     'Referer': 'https://quote.eastmoney.com/',
     'Cache-Control': 'no-cache',
@@ -146,8 +146,16 @@ class RequestsPatcher:
                     kwargs['timeout'] = self._timeout
                 return original_request(self_obj, method, url, **kwargs)
             
-            # 注入请求头
-            kwargs['headers'] = self._get_headers()
+            # 合并请求头，而不是覆盖
+            user_headers = kwargs.pop('headers', {})
+            if user_headers is None:
+                user_headers = {}
+            final_headers = self._get_headers()
+            user_agent = final_headers["User-Agent"]
+            final_headers.update(user_headers)
+            # 确保 User-Agent 被替换设置，其他请求头有就保持不变
+            final_headers["User-Agent"] = user_agent
+            kwargs['headers'] = final_headers
             
             # 默认超时
             if 'timeout' not in kwargs or kwargs['timeout'] is None:
@@ -171,7 +179,16 @@ class RequestsPatcher:
                     kwargs['timeout'] = self._timeout
                 return original_get(url, **kwargs)
             
-            kwargs['headers'] = self._get_headers()
+            # 合并请求头，而不是覆盖
+            user_headers = kwargs.pop('headers', {})
+            if user_headers is None:
+                user_headers = {}
+            final_headers = self._get_headers()
+            user_agent = final_headers["User-Agent"]
+            final_headers.update(user_headers)
+            # 确保 User-Agent 被替换设置，其他请求头有就保持不变
+            final_headers["User-Agent"] = user_agent
+            kwargs['headers'] = final_headers
             
             if 'timeout' not in kwargs or kwargs['timeout'] is None:
                 kwargs['timeout'] = self._timeout
@@ -194,7 +211,16 @@ class RequestsPatcher:
                     kwargs['timeout'] = self._timeout
                 return original_post(url, **kwargs)
             
-            kwargs['headers'] = self._get_headers()
+            # 合并请求头，而不是覆盖
+            user_headers = kwargs.pop('headers', {})
+            if user_headers is None:
+                user_headers = {}
+            final_headers = self._get_headers()
+            user_agent = final_headers["User-Agent"]
+            final_headers.update(user_headers)
+            # 确保 User-Agent 被替换设置，其他请求头有就保持不变
+            final_headers["User-Agent"] = user_agent
+            kwargs['headers'] = final_headers
             
             if 'timeout' not in kwargs or kwargs['timeout'] is None:
                 kwargs['timeout'] = self._timeout
@@ -422,3 +448,45 @@ def retry_on_failure(max_retries=3, base_delay=1.0, backoff=2.0, exceptions=(Exc
         
         return wrapper  # 返回包装后的函数
     return decorator
+
+
+
+if __name__ == "__main__":
+    import akshare as ak
+    import traceback
+    
+    stock_code = "688549"
+
+    try:
+        # akshare_df = ak.stock_individual_fund_flow(stock=stock_code, market="sh")
+        # print(f"[Akshare] 获取到 {stock_code} 的资金数据:\n {akshare_df} ")
+        
+        with RequestsPatcher():
+
+            df = ak.stock_zh_a_spot_em()
+            stock_df = df[df['代码'] == stock_code]
+            print(f"[Akshare] 获取到 {stock_code} 的实时数据:\n {stock_df} ")
+
+            stock_info = ak.stock_individual_info_em(symbol=stock_code)
+            print(f"[Akshare] 获取到 {stock_code} 的基本信息:\n {stock_info} ")
+
+            akshare_df = ak.stock_individual_fund_flow(stock=stock_code, market="sh")
+            print(f"[Akshare] 获取到 {stock_code} 的资金数据:\n {akshare_df} ")
+
+            print(f"[Akshare] 正在获取 {stock_code} 的历史数据...")
+            df = ak.stock_zh_a_hist(
+                symbol=stock_code,
+                period="daily",
+                start_date="20260601",
+                end_date="20260630",
+                adjust="qfq"
+            )
+            print(f"[Akshare] 获取到 {stock_code} 的历史数据:\n {df} ")
+
+            # stock_info = ak.stock_individual_info_em(symbol=stock_code)
+            # print(f"[Akshare] 获取到 {stock_code} 的基本信息:\n {stock_info} ")
+    except Exception as e:
+        print(f"[Akshare] 获取 {stock_code} 的历史数据失败: {e}")
+        traceback.print_exc()
+
+    

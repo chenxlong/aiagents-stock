@@ -21,6 +21,7 @@ class TushareDataFetcher:
         self.tushare_token = os.getenv('TUSHARE_TOKEN', '')
         self.tushare_available = False
         self.tushare_api = None
+        self.days = 30
         # 初始化tushare
         if self.tushare_token:
             try:
@@ -61,7 +62,20 @@ class TushareDataFetcher:
             # 默认深圳
             return f"{symbol}.SZ"
     
-
+    def convert_from_ts_code(self, ts_code):
+        """
+        将tushare格式代码转换为6位代码
+        
+        Args:
+            ts_code: tushare格式代码（如：000001.SZ）
+            
+        Returns:
+            str: 6位股票代码
+        """
+        if '.' in ts_code:
+            return ts_code.split('.')[0]
+        return ts_code
+    
     ## 是不复权的历史数据
     def get_stock_history_data_tushare(self, symbol, start_date=None, end_date=None, adjust='qfq'):
         """
@@ -307,7 +321,7 @@ class TushareDataFetcher:
 
         return realtime_data
 
-    # 权限不够 无法获取  请在tushare官网申请权限
+    # 不可用。权限不够 无法获取  请在tushare官网申请权限
     def get_financial_data_tushare(self, symbol, report_type='income'):
         """
         获取财务数据（tushare）
@@ -327,7 +341,7 @@ class TushareDataFetcher:
         try:
             self.logger.info(f"[Tushare] 正在获取 {symbol} 的财务数据（备用数据源）...")
             
-            ts_code = self._convert_to_ts_code(symbol)
+            ts_code = self.convert_to_ts_code(symbol)
             
             if report_type == 'income':
                 df = self.tushare_api.income(ts_code=ts_code)
@@ -346,7 +360,7 @@ class TushareDataFetcher:
         
         return df
 
-    # 权限不够 无法获取  请在tushare官网申请权限
+    # 不可用。权限不够 无法获取  请在tushare官网申请权限
     def get_individual_fund_flow_tushare(self, symbol, market):
         """获取个股资金流向数据（tushare）"""
         if not self.tushare_available:
@@ -356,7 +370,7 @@ class TushareDataFetcher:
         df = None
         try:
             self.logger.info(f"[Tushare] 正在获取资金流向数据（备用数据源）...")
-            ts_code = self._convert_to_ts_code(symbol)
+            ts_code = self.convert_to_ts_code(symbol)
             
             # 计算日期范围（最近N个交易日）
             end_date = datetime.now().strftime('%Y%m%d')
@@ -431,10 +445,20 @@ if __name__ == '__main__':
     if not hist_data.empty:
         print(f"最近5天数据:\n{hist_data.tail()}")
     
-    # 3. 测试获取实时数据
+    # 3. 测试获取实时数据 （非实时数据，基本不可用 第一次成功 (daily)频率超限(1次/小时)）
     print(f"\n3. 获取 {test_symbol} 的实时信息:") 
     realtime = tushare_fetcher.get_stock_realtime_data_tushare(test_symbol)
     print(f"实时信息: {realtime}")
+
+    # 4. 测试获取资金流向数据 （基本不可用。权限不够 无法获取  请在tushare官网申请权限）
+    print(f"\n4. 获取 {test_symbol} 的资金流向数据:")
+    fund_flow = tushare_fetcher.get_individual_fund_flow_tushare(test_symbol, market="SH")
+    print(f"资金流向数据: {fund_flow}")
+    
+    # 5. 测试获取财务数据（基本不可用。权限不够 无法获取  请在tushare官网申请权限）
+    print(f"\n5. 获取 {test_symbol} 的财务数据:")
+    finance = tushare_fetcher.get_financial_data_tushare(test_symbol, report_type="income")
+    print(f"财务数据: {finance}")
     
     print("\n" + "=" * 50)
     print("测试完成")
