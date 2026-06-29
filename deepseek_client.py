@@ -43,7 +43,7 @@ class DeepSeekClient:
             
             # 检查是否有推理内容
             if hasattr(message, 'reasoning_content') and message.reasoning_content:
-                result += f"【推理过程】\n{message.reasoning_content}\n\n"
+                result += f"【推理过程开始】\n{message.reasoning_content}\n【推理过程结束】\n"
             
             # 添加最终内容
             if message.content:

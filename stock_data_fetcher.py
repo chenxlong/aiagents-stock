@@ -11,9 +11,6 @@ import time
 from data_source_manager import data_source_manager
 import log_utils
 
-# 应用 akshare 请求补丁（确保请求头/超时/重试）
-from utils.akshare_helper import patch_requests, retry_on_failure
-patch_requests()
 
 class StockDataFetcher:
     """股票数据获取类"""
@@ -24,7 +21,7 @@ class StockDataFetcher:
         self.data = None
         self.info = None
         self.financial_data = None
-        self.data_source_manager = data_source_manager
+        self.data_source_manager = data_source_manager  # Todo: 实现数据来源管理器，也可以不用全局实例
         
     def get_stock_info(self, symbol):
         """获取股票基本信息"""
@@ -95,7 +92,7 @@ class StockDataFetcher:
             "market": "中国A股",
             "exchange": "上海/深圳证券交易所",
             "industry": "N/A",
-            "Total_share_capital": "N/A",
+            "total_share_capital": "N/A",
             "tradable_share_capital": "N/A"
         }
         

@@ -16,7 +16,7 @@ import json
 from monitor_db import monitor_db
 from monitor_service import monitor_service
 from notification_service import notification_service
-from stock_data import StockDataFetcher
+from stock_data_fetcher import StockDataFetcher
 from miniqmt_interface import miniqmt, get_miniqmt_status, QuantStrategyConfig
 
 def display_monitor_manager():

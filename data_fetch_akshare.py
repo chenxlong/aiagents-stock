@@ -273,7 +273,7 @@ class AkshareDataFetcher:
 
         return info
 
-    # 不可用
+    # 可用，但是太慢，全市场的快照实时行情数据
     def get_realtime_quotes_akshare(self, symbol):
         """
         获取实时行情数据（akshare）
@@ -314,7 +314,7 @@ class AkshareDataFetcher:
         
         return quotes
 
-    # 不可用
+    # 可用
     def get_individual_fund_flow_akshare(self, symbol, market):
         """获取个股资金流向数据（akshare）"""
         df = None
@@ -399,10 +399,11 @@ if __name__ == '__main__':
     test_symbol = "688549"  # 中巨芯
     
     # 1. 测试获取基本信息(东方财富  
-    # NG  ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response')))
     print(f"\n1. 获取 {test_symbol} 的基本信息:")
     info = akshare_data_fetcher.get_stock_basic_info_akshare(test_symbol)
     print(f"基本信息: {info}")
+
+    time.sleep(1)
     
     # 2. 测试获取历史数据
     print(f"\n2. 获取 {test_symbol} 的历史数据:")
@@ -410,22 +411,29 @@ if __name__ == '__main__':
     print(f"历史数据形状: {hist_data.shape}")
     if not hist_data.empty:
         print(f"最近5天数据:\n{hist_data.tail()}")
+
+    time.sleep(1)
     
     # 3. 测试获取实时数据
     print(f"\n3. 获取 {test_symbol} 的实时信息:")
     realtime = akshare_data_fetcher.get_stock_realtime_info_sina(test_symbol)
     print(f"实时信息: {realtime}")
 
-    # 4. 不可用，测试获取实时数据(东方财富)
-    # NG  ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+    time.sleep(1)
+
+    # 4. 可用，但是太慢，全市场的快照实时行情数据 测试获取实时数据(东方财富)
     print(f"\n4. 获取 {test_symbol} 的实时信息:")
     realtime = akshare_data_fetcher.get_realtime_quotes_akshare(test_symbol)
     print(f"实时信息: {realtime}")
+
+    time.sleep(2)
     
     # 5. 个股资金流向
     print(f"\n5. 获取 {test_symbol} 的资金流向:")
     fund_flow = akshare_data_fetcher.get_individual_fund_flow_akshare(test_symbol, market="sh")
     print(f"资金流向: {fund_flow}")
+
+    time.sleep(2)
 
     # 6. 个股财务数据
     print(f"\n6. 获取 {test_symbol} 的财务数据:")
@@ -433,6 +441,7 @@ if __name__ == '__main__':
         financial_data = akshare_data_fetcher.get_financial_data_akshare(test_symbol, report_type=report_type)
         print(f"{report_type}财务数据: {financial_data}")
     
+    time.sleep(2)
     
     print("\n" + "=" * 50)
     print("测试完成")

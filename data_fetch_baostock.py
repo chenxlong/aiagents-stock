@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import log_utils
 import traceback
+import time
 
 class BaostockDataFetcher:
     """基于 baostock 的股票数据获取类"""
@@ -215,6 +216,7 @@ class BaostockDataFetcher:
             # 获取单只股票的基本信息
             rs_basic = bs.query_stock_basic(code=ts_code)
             # 也可以通过名称查询：rs = bs.query_stock_basic(code_name="浦发银行")
+            time.sleep(1)
 
             data_list_basic = []
             while (rs_basic.error_code == '0') & rs_basic.next():
@@ -226,6 +228,7 @@ class BaostockDataFetcher:
 
             # 获取股票行业信息
             rs_industry = bs.query_stock_industry(code=ts_code)
+            time.sleep(1)
             data_list_industry = []
             while (rs_industry.error_code == '0') & rs_industry.next():
                 # 获取一条记录，将记录合并在一起
@@ -233,9 +236,11 @@ class BaostockDataFetcher:
             df_industry = pd.DataFrame(data_list_industry, columns=rs_industry.fields)
             self.logger.info(f"[Baostock] 获取到行业信息:\n {df_industry} ")
 
+
             # 查询季频估值指标盈利能力（股票股本信息）
             profit_list = []
             rs_profit = bs.query_profit_data(code=ts_code)
+            time.sleep(1)
             while (rs_profit.error_code == '0') & rs_profit.next():
                 profit_list.append(rs_profit.get_row_data())
             result_profit = pd.DataFrame(profit_list, columns=rs_profit.fields)
@@ -247,21 +252,22 @@ class BaostockDataFetcher:
                 info['market'] = "N/A"
                 info['list_date'] = df_basic.iloc[0]['ipoDate']
                 info['area'] = "N/A"
-                info['total_share'] = "N/A"
-                info['float_share'] = "N/A"
+                info['total_share_capital'] = "N/A"
+                info['tradable_share_capital'] = "N/A"
                 # 合并行业信息
                 if df_industry is not None and not df_industry.empty:
                     info['industry'] = df_industry.iloc[0]['industry']
 
                 # 合并季频估值指标 股本信息
                 if result_profit is not None and not result_profit.empty:
-                    info['total_share'] = result_profit.iloc[0]['totalShare']
-                    info['float_share'] = result_profit.iloc[0]['liqaShare']
+                    info['total_share_capital'] = result_profit.iloc[0]['totalShare']
+                    info['tradable_share_capital'] = result_profit.iloc[0]['liqaShare']
 
                 self.logger.info(f"[Baostock] ✅ 成功获取基本信息:\n{info}")
                 return info
         except Exception as e:
-            self.logger.error(f"[Baostock] ❌ 获取失败: {e}")
+            self.logger.error(f"[Baostock] ❌ 获取失败: {e} 错误类型: {type(e).__name__}")
+            self.logger.error(f"[Baostock] 完整错误堆栈:\n{traceback.format_exc()}")
 
         return info
 

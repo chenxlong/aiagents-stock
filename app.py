@@ -17,7 +17,7 @@ import time
 import base64
 import config
 
-from stock_data import StockDataFetcher
+from stock_data_fetcher import StockDataFetcher
 from ai_agents import StockAnalysisAgents
 from pdf_generator import display_pdf_export_section
 from database import db

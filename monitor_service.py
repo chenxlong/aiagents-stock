@@ -8,7 +8,7 @@ import os
 import log_utils
 
 from monitor_db import monitor_db
-from stock_data import StockDataFetcher
+from stock_data_fetcher import StockDataFetcher
 from miniqmt_interface import miniqmt, get_miniqmt_status
 from notification_service import notification_service
 

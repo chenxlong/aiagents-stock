@@ -3,6 +3,7 @@ from typing import Dict, Any
 import time
 import config
 import log_utils
+from utils.common import split_thinking_and_result_content
 
 class StockAnalysisAgents:
     """股票分析AI智能体集合"""
@@ -491,27 +492,33 @@ class StockAnalysisAgents:
         
         if "technical" in agents_results:
             participants.append("技术分析师")
-            reports.append(f"【技术分析师报告】\n{agents_results['technical'].get('analysis', '')}")
+            _, analysis = split_thinking_and_result_content(agents_results['technical'].get('analysis', ''))
+            reports.append(f"【技术分析师报告】\n{analysis}")
         
         if "fundamental" in agents_results:
             participants.append("基本面分析师")
-            reports.append(f"【基本面分析师报告】\n{agents_results['fundamental'].get('analysis', '')}")
+            _, analysis = split_thinking_and_result_content(agents_results['fundamental'].get('analysis', ''))
+            reports.append(f"【基本面分析师报告】\n{analysis}")
         
         if "fund_flow" in agents_results:
             participants.append("资金面分析师")
-            reports.append(f"【资金面分析师报告】\n{agents_results['fund_flow'].get('analysis', '')}")
+            _, analysis = split_thinking_and_result_content(agents_results['fund_flow'].get('analysis', ''))
+            reports.append(f"【资金面分析师报告】\n{analysis}")
         
         if "risk_management" in agents_results:
             participants.append("风险管理师")
-            reports.append(f"【风险管理师报告】\n{agents_results['risk_management'].get('analysis', '')}")
+            _, analysis = split_thinking_and_result_content(agents_results['risk_management'].get('analysis', ''))
+            reports.append(f"【风险管理师报告】\n{analysis}")
         
         if "market_sentiment" in agents_results:
             participants.append("市场情绪分析师")
-            reports.append(f"【市场情绪分析师报告】\n{agents_results['market_sentiment'].get('analysis', '')}")
+            _, analysis = split_thinking_and_result_content(agents_results['market_sentiment'].get('analysis', ''))
+            reports.append(f"【市场情绪分析师报告】\n{analysis}")
         
         if "news" in agents_results:
             participants.append("新闻分析师")
-            reports.append(f"【新闻分析师报告】\n{agents_results['news'].get('analysis', '')}")
+            _, analysis = split_thinking_and_result_content(agents_results['news'].get('analysis', ''))
+            reports.append(f"【新闻分析师报告】\n{analysis}")
         
         # 组合所有报告
         all_reports = "\n\n".join(reports)
@@ -554,7 +561,8 @@ class StockAnalysisAgents:
         self.logger.info("📋 正在制定最终投资决策...")
         time.sleep(1)
         
-        decision = self.deepseek_client.final_decision(discussion_result, stock_info, indicators)
+        _, analysis = split_thinking_and_result_content(discussion_result)
+        decision = self.deepseek_client.final_decision(analysis, stock_info, indicators)
         self.logger.info(f"最终投资决策:\n {decision}")
         
         self.logger.info("✅ 最终投资决策完成")
