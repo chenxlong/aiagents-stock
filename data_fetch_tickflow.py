@@ -43,8 +43,8 @@ class TickFlowDataFetcher:
                     "market": item.get('exchange', 'N/A'),
                     "type": item.get('type', 'N/A'),    # 标的类型
                     "list_date": ext.get('listing_date', 'N/A'),
-                    "total_shares": ext.get('total_shares', 'N/A'),
-                    "float_shares": ext.get('float_shares', 'N/A')
+                    "total_share_capital": ext.get('total_shares', 'N/A'),
+                    "tradable_share_capital": ext.get('float_shares', 'N/A')
                 }
                 self.logger.info(f"✅ 成功获取 {symbol} 的基本信息: {info}")
                 return info

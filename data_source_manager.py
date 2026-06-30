@@ -121,12 +121,12 @@ class DataSourceManager:
         # 数据源4，尝试baostock
         with BaostockDataFetcher() as client:
             info = client.get_stock_basic_info_baostock(symbol)
-            if info['name'] != 'N/A':
+            if info['name'] != 'N/A' and info['total_share_capital'] != 'N/A':
                 return info
 
         # 数据源3，尝试tickflow
         info = self.tickflow_fetcher.get_stock_basic_info(symbol)
-        if info['name'] != 'N/A':
+        if info['name'] != 'N/A' and info['total_share_capital'] != 'N/A':
             return info
         
         # 优先使用akshare（东方财富）
@@ -276,6 +276,19 @@ class DataSourceManager:
                 return None
 
         return df
+    
+    def get_valuation_value(self, symbol, indicator="总市值", period="近一年"):
+        """
+        获取个股估值数据
+        """
+        df = None
+        akshare_df = None
+        df = self.akshare_fetcher.get_valuation_value_akshare(symbol, indicator, period)
+        if df is not None:
+            return df
+        else:
+            return None
+
 
 # 全局数据源管理器实例
 data_source_manager = DataSourceManager()

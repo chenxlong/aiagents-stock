@@ -379,6 +379,36 @@ class AkshareDataFetcher:
                     time.sleep(delay)
         return df
 
+    # 获取百度股市通-A股-财务报表-估值数据
+    def get_valuation_value_akshare(self, symbol, indicator="总市值", period="近一年"):
+        """
+        获取百度股市通-A股-财务报表-估值数据（akshare）
+        """
+        df = None
+        akshare_df = None
+
+        for retry_count in range(3):
+            try:
+                self.logger.info(f"[Akshare-百度股市通] 正在获取 {symbol} 的估值（{indicator}）数据..." + (f" (第{retry_count+1}次)"))
+                
+                akshare_df = ak.stock_zh_valuation_baidu(symbol=symbol, indicator=indicator, period=period)
+
+                self.logger.debug(f"[Akshare-百度股市通] -估值（{indicator}）数据原始数据: {akshare_df}")
+
+                if akshare_df is not None and not akshare_df.empty:
+                    self.logger.info(f"[Akshare-百度股市通] 获取到 {len(akshare_df)} 条估值（{indicator}）数据")
+                    df = akshare_df
+                    break
+            except Exception as e:
+                self.logger.error(f"[Akshare-百度股市通] ❌ 获取估值（{indicator}）数据失败: {e}")
+                self.logger.error(f"[Akshare-百度股市通] 完整错误堆栈:\n{traceback.format_exc()}")
+                if retry_count < 2:
+                    delay = (retry_count + 1) * 2
+                    self.logger.info(f"[Akshare-百度股市通] ⏳ {delay}s 后重试...")
+                    time.sleep(delay)
+        return df
+
+
 if __name__ == '__main__':
     # 测试代码
     print("=" * 50)
@@ -405,43 +435,51 @@ if __name__ == '__main__':
 
     time.sleep(1)
     
-    # 2. 测试获取历史数据
-    print(f"\n2. 获取 {test_symbol} 的历史数据:")
-    hist_data = akshare_data_fetcher.get_stock_history_data_akshare(test_symbol,start_date="20260601",end_date="20260630",adjust="qfq")
-    print(f"历史数据形状: {hist_data.shape}")
-    if not hist_data.empty:
-        print(f"最近5天数据:\n{hist_data.tail()}")
+    # # 2. 测试获取历史数据
+    # print(f"\n2. 获取 {test_symbol} 的历史数据:")
+    # hist_data = akshare_data_fetcher.get_stock_history_data_akshare(test_symbol,start_date="20260601",end_date="20260630",adjust="qfq")
+    # print(f"历史数据形状: {hist_data.shape}")
+    # if not hist_data.empty:
+    #     print(f"最近5天数据:\n{hist_data.tail()}")
 
-    time.sleep(1)
+    # time.sleep(1)
     
-    # 3. 测试获取实时数据
-    print(f"\n3. 获取 {test_symbol} 的实时信息:")
-    realtime = akshare_data_fetcher.get_stock_realtime_info_sina(test_symbol)
-    print(f"实时信息: {realtime}")
+    # # 3. 测试获取实时数据
+    # print(f"\n3. 获取 {test_symbol} 的实时信息:")
+    # realtime = akshare_data_fetcher.get_stock_realtime_info_sina(test_symbol)
+    # print(f"实时信息: {realtime}")
 
-    time.sleep(1)
+    # time.sleep(1)
 
-    # 4. 可用，但是太慢，全市场的快照实时行情数据 测试获取实时数据(东方财富)
-    print(f"\n4. 获取 {test_symbol} 的实时信息:")
-    realtime = akshare_data_fetcher.get_realtime_quotes_akshare(test_symbol)
-    print(f"实时信息: {realtime}")
+    # # 4. 可用，但是太慢，全市场的快照实时行情数据 测试获取实时数据(东方财富)
+    # print(f"\n4. 获取 {test_symbol} 的实时信息:")
+    # realtime = akshare_data_fetcher.get_realtime_quotes_akshare(test_symbol)
+    # print(f"实时信息: {realtime}")
 
-    time.sleep(2)
+    # time.sleep(2)
     
-    # 5. 个股资金流向
-    print(f"\n5. 获取 {test_symbol} 的资金流向:")
-    fund_flow = akshare_data_fetcher.get_individual_fund_flow_akshare(test_symbol, market="sh")
-    print(f"资金流向: {fund_flow}")
+    # # 5. 个股资金流向
+    # print(f"\n5. 获取 {test_symbol} 的资金流向:")
+    # fund_flow = akshare_data_fetcher.get_individual_fund_flow_akshare(test_symbol, market="sh")
+    # print(f"资金流向: {fund_flow}")
 
-    time.sleep(2)
+    # time.sleep(2)
 
-    # 6. 个股财务数据
-    print(f"\n6. 获取 {test_symbol} 的财务数据:")
-    for report_type in ['income', 'balance', 'cashflow']:
-        financial_data = akshare_data_fetcher.get_financial_data_akshare(test_symbol, report_type=report_type)
-        print(f"{report_type}财务数据: {financial_data}")
+    # # 6. 个股财务数据
+    # print(f"\n6. 获取 {test_symbol} 的财务数据:")
+    # for report_type in ['income', 'balance', 'cashflow']:
+    #     financial_data = akshare_data_fetcher.get_financial_data_akshare(test_symbol, report_type=report_type)
+    #     print(f"{report_type}财务数据: {financial_data}")
     
-    time.sleep(2)
+    # time.sleep(2)
+
+    # "市盈率(TTM)", "市盈率(静)", "市净率", "市现率"
+    test_indicator = "市盈率(TTM)"
+    test_period = "近一年"
+    # 7. 个股估值数据
+    print(f"\n7. 获取 {test_symbol} 的估值数据:")
+    valuation_data = akshare_data_fetcher.get_valuation_value_akshare(test_symbol, indicator=test_indicator, period=test_period)
+    print(f"估值数据: {valuation_data}")
     
     print("\n" + "=" * 50)
     print("测试完成")

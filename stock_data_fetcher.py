@@ -107,58 +107,65 @@ class StockDataFetcher:
             # if detail_info:
             #     info.update(detail_info)
             
-            try:
-                self.logger.info(f"[数据源管理器] 尝试获取30天历史价格数据...")
-                hist_data = self.data_source_manager.get_stock_hist_data(
-                    symbol=symbol,
-                    start_date=(datetime.now() - timedelta(days=30)).strftime('%Y%m%d'),
-                    end_date=datetime.now().strftime('%Y%m%d'),
-                    adjust='qfq'
-                )
-                self.logger.info(f"[数据源管理器] 获取到 {symbol} 的历史价格数据:\n {hist_data} ")
-                
-                if hist_data is not None and not hist_data.empty:
-                    # 标准化列名
-                    if 'close' in hist_data.columns:
-                        latest = hist_data.iloc[-1]
-                        info['current_price'] = latest['close']
+            self.logger.info(f"[数据源管理器] 尝试获取30天历史价格数据...")
+            hist_data = self.data_source_manager.get_stock_hist_data(
+                symbol=symbol,
+                start_date=(datetime.now() - timedelta(days=30)).strftime('%Y%m%d'),
+                end_date=datetime.now().strftime('%Y%m%d'),
+                adjust='qfq'
+            )
+            self.logger.info(f"[数据源管理器] 获取到 {symbol} 的历史价格数据:\n {hist_data} ")
+            
+            if hist_data is not None and not hist_data.empty:
+                # 标准化列名
+                if 'close' in hist_data.columns:
+                    latest = hist_data.iloc[-1]
+                    info['current_price'] = latest['close']
+
+                    if 'pct_chg' in hist_data.columns:
+                        info['change_percent'] = round(latest['pct_chg'], 2)
+                    else:
                         # 计算涨跌幅
                         if len(hist_data) > 1:
                             prev_close = hist_data.iloc[-2]['close']
                             change_pct = ((latest['close'] - prev_close) / prev_close) * 100
                             info['change_percent'] = round(change_pct, 2)
-                        self.logger.info(f"[数据源管理器] ✅ 成功获取价格数据")
-            except Exception as e2:
-                self.logger.error(f"获取历史数据也失败: {e2}")
+                        else:
+                            info['change_percent'] = 'N/A'
+                    # 处理市盈率和市净率
+                    if 'pe_ttm' in hist_data.columns:
+                        info['pe_ratio'] = float(latest['pe_ttm'])
+                    if 'pb_mrq' in hist_data.columns:
+                        info['pb_ratio'] = float(latest['pb_mrq'])
+                    
+                    self.logger.info(f"[数据源管理器] ✅ 成功获取价格数据")
+
             
-            # 方法3: 使用百度估值数据获取市盈率和市净率
+            # 方法3: 估值数据获取市盈率和市净率
             if info['pe_ratio'] == 'N/A':
-                try:
-                    self.logger.info(f"使用百度估值数据获取市盈率...")
-                    pe_data = ak.stock_zh_valuation_baidu(symbol=symbol, indicator="市盈率(TTM)")
-                    self.logger.info(f"[Akshare] 获取到 {symbol} 的市盈率数据:\n {pe_data} ")
-                    if pe_data is not None and not pe_data.empty:
-                        latest_pe = pe_data.iloc[-1]['value']
-                        if latest_pe and latest_pe != '-':
-                            pe_val = float(latest_pe)
-                            if 0 < pe_val <= 1000:
-                                info['pe_ratio'] = pe_val
-                except Exception as e:
-                    self.logger.error(f"获取市盈率失败: {e}")
+                self.logger.info(f"[数据源管理器] 尝试获取估值数据（市盈率(TTM)）...")
+                pe_data = self.data_source_manager.get_valuation_value(symbol, indicator="市盈率(TTM)")
+                self.logger.info(f"[数据源管理器] 获取到 {symbol} 的市盈率数据:\n {pe_data} ")
+                if pe_data is not None and not pe_data.empty:
+                    latest_pe = pe_data.iloc[-1]['value']
+                    if latest_pe and latest_pe != '-':
+                        pe_val = float(latest_pe)
+                        if 0 < pe_val <= 1000:
+                            info['pe_ratio'] = pe_val
+                        else:
+                            info['pe_ratio'] = '亏损'
+
             
             if info['pb_ratio'] == 'N/A':
-                try:
-                    self.logger.info(f"使用百度估值数据获取市净率...")
-                    pb_data = ak.stock_zh_valuation_baidu(symbol=symbol, indicator="市净率")
-                    self.logger.info(f"[Akshare] 获取到 {symbol} 的市净率数据:\n {pb_data} ")
-                    if pb_data is not None and not pb_data.empty:
-                        latest_pb = pb_data.iloc[-1]['value']
-                        if latest_pb and latest_pb != '-':
-                            pb_val = float(latest_pb)
-                            if 0 < pb_val <= 100:
-                                info['pb_ratio'] = pb_val
-                except Exception as e:
-                    self.logger.error(f"获取市净率失败: {e}")
+                self.logger.info(f"[数据源管理器] 尝试获取估值数据（市净率）...")
+                pb_data = self.data_source_manager.get_valuation_value(symbol, indicator="市净率")
+                self.logger.info(f"[数据源管理器] 获取到 {symbol} 的市净率数据:\n {pb_data} ")
+                if pb_data is not None and not pb_data.empty:
+                    latest_pb = pb_data.iloc[-1]['value']
+                    if latest_pb and latest_pb != '-':
+                        pb_val = float(latest_pb)
+                        if 0 < pb_val <= 100:
+                            info['pb_ratio'] = pb_val
             
             return info
             
