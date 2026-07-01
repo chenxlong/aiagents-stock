@@ -157,7 +157,9 @@ class BaostockDataFetcher:
 
                 if rs.error_code != '0':
                     self.logger.error(f"[Baostock] 获取 {symbol} {s} 到 {e} 数据失败: {rs.error_code} {rs.error_msg}")
+                    self.logout()
                     time.sleep(0.5)
+                    self.login()
                     continue
 
                 data_list = []
@@ -173,7 +175,7 @@ class BaostockDataFetcher:
 
             # 合并所有数据
             df = pd.concat(all_rows, axis=0, ignore_index=True)
-            self.logger.info(f"[Baostock] 合并 {len(all_rows)} 个数据框，共 {len(df)} 条记录，数据:\n{df}")
+            self.logger.info(f"[Baostock] 合并 {symbol} 日期范围 {bs_start_date} 到 {bs_end_date} 的 {len(all_rows)} 个数据集，共 {len(df)} 条记录，数据:\n{df}")
             
             # 数据类型转换（Baostock返回的数据默认都是字符串类型）
             df['date'] = pd.to_datetime(df['date'])
@@ -407,23 +409,23 @@ if __name__ == '__main__':
         df = client.get_stock_history_data_baostock(test_symbol, start_date="20250601", end_date="20260601", adjust='qfq')
         print(df)
     
-    # # 创建全局实例
-    # baostock_fetcher = BaostockDataFetcher()
-    # # 2. 测试获取历史数据
-    # print(f"\n2. 获取 {test_symbol} 的历史数据:") 
-    # baostock_fetcher.login()
-    # hist_data = baostock_fetcher.get_stock_history_data_baostock(test_symbol, start_date="20260601", end_date="20260630", adjust='qfq')
-    # if not hist_data.empty:
-    #     print(f"最近5天数据:\n{hist_data.tail()}")
+    # 创建全局实例
+    baostock_fetcher = BaostockDataFetcher()
+    # 2. 测试获取历史数据
+    print(f"\n2. 获取 {test_symbol} 的历史数据:") 
+    baostock_fetcher.login()
+    hist_data = baostock_fetcher.get_stock_history_data_baostock(test_symbol, start_date="20260601", end_date="20260630", adjust='qfq')
+    if not hist_data.empty:
+        print(f"最近5天数据:\n{hist_data.tail()}")
 
-    # # 3. 测试获取季频估值指标盈利能力
-    # print(f"\n3. 获取 {test_symbol} 的季频估值指标盈利能力:")
-    # result_profit_df = baostock_fetcher.get_stock_equity_baostock(test_symbol)
-    # if not result_profit_df.empty:
-    #     print(f"季频估值指标盈利能力:\n{result_profit_df.tail()}")
+    # 3. 测试获取季频估值指标盈利能力
+    print(f"\n3. 获取 {test_symbol} 的季频估值指标盈利能力:")
+    result_profit_df = baostock_fetcher.get_stock_equity_baostock(test_symbol)
+    if not result_profit_df.empty:
+        print(f"季频估值指标盈利能力:\n{result_profit_df.tail()}")
 
-    # baostock_fetcher.logout()
-    # # 3. 测试获取实时数据(无测试)
+    baostock_fetcher.logout()
+    # 3. 测试获取实时数据(无测试)
 
     
     print("\n" + "=" * 50)

@@ -854,15 +854,7 @@ def check_api_key():
 def get_stock_data(symbol, period):
     """获取股票数据（带缓存）"""
     fetcher = StockDataFetcher()
-    stock_info = fetcher.get_stock_info(symbol)
-    stock_data = fetcher.get_stock_data(symbol, period)
-
-    if isinstance(stock_data, dict) and "error" in stock_data:
-        return stock_info, None, None
-
-    stock_data_with_indicators = fetcher.calculate_technical_indicators(stock_data)
-    indicators = fetcher.get_latest_indicators(stock_data_with_indicators)
-
+    stock_info, stock_data_with_indicators, indicators = fetcher.get_stock_data(symbol, period)
     return stock_info, stock_data_with_indicators, indicators
 
 def parse_stock_list(stock_input):
@@ -1529,14 +1521,18 @@ def display_stock_chart(stock_data, stock_info):
             rows=1, cols=1
         )
 
-    # 添加蜡烛图到第一行
+    # 添加蜡烛图到第一行（中国风格：上涨红色，下跌绿色）
     fig.add_trace(go.Candlestick(
         x=stock_data.index,
         open=stock_data['Open'],
         high=stock_data['High'],
         low=stock_data['Low'],
         close=stock_data['Close'],
-        name="K线"
+        name="K线",
+        increasing_line_color='#ef4444',
+        increasing_fillcolor='#ef4444',
+        decreasing_line_color='#22c55e',
+        decreasing_fillcolor='#22c55e'
     ), row=1, col=1)
 
     # 添加移动平均线到第一行
@@ -1581,13 +1577,14 @@ def display_stock_chart(stock_data, stock_info):
             fillcolor='rgba(0,100,80,0.1)'
         ), row=1, col=1)
 
-    # 添加成交量到第二行（如果有）
+    # 添加成交量到第二行（如果有）- 中国风格：上涨红色，下跌绿色
     if has_volume:
+        volume_colors = ['#ef4444' if stock_data['Close'].iloc[i] >= stock_data['Open'].iloc[i] else '#22c55e' for i in range(len(stock_data))]
         fig.add_trace(go.Bar(
             x=stock_data.index,
             y=stock_data['Volume'],
             name="成交量",
-            marker_color='lightblue'
+            marker_color=volume_colors
         ), row=2, col=1)
 
     # 更新布局

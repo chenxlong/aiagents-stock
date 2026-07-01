@@ -39,7 +39,7 @@ class StockDataFetcher:
         except Exception as e:
             return {"error": f"获取股票信息失败: {str(e)}"}
     
-    def get_stock_data(self, symbol, period="1y", interval="1d"):
+    def get_stock_history_data(self, symbol, period="1y", interval="1d"):
         """获取股票历史数据"""
         self.logger.debug(f"开始获取股票 {symbol} ，时间周期 {period} ，时间间隔 {interval} 的历史数据")
         try:
@@ -137,7 +137,12 @@ class StockDataFetcher:
                         info['pe_ratio'] = float(latest['pe_ttm'])
                     if 'pb_mrq' in hist_data.columns:
                         info['pb_ratio'] = float(latest['pb_mrq'])
-                    
+
+                    # 总市值
+                    info['market_cap'] = float(info['current_price']) * float(info['total_share_capital'])
+                    info['market_cap'] = round(info['market_cap'], 2)
+                    # info['market_cap'] = f"{info['market_cap']:.2f}"
+                                           
                     self.logger.info(f"[数据源管理器] ✅ 成功获取价格数据")
 
             
@@ -366,7 +371,7 @@ class StockDataFetcher:
             else:
                 start_date = (datetime.now() - timedelta(days=365)).strftime('%Y%m%d')
             
-            # 使用数据源管理器获取数据（自动切换akshare和tushare）
+            # 使用数据源管理器获取数据（自动切换）
             df = self.data_source_manager.get_stock_hist_data(
                 symbol=symbol,
                 start_date=start_date,
@@ -378,20 +383,20 @@ class StockDataFetcher:
             if df is not None and not df.empty:
                 # 标准化列名为大写（与原有格式保持一致）
                 df = df.rename(columns={
-                    'date': 'Date',
-                    'open': 'Open',
-                    'close': 'Close',
-                    'high': 'High',
-                    'low': 'Low',
-                    'volume': 'Volume'
+                    'date': 'date',
+                    'open': 'open',
+                    'close': 'close',
+                    'high': 'high',
+                    'low': 'low',
+                    'volume': 'volume'
                 })
                 
-                # 确保Date列为datetime类型
-                if 'Date' not in df.columns and df.index.name == 'date':
-                    df.index.name = 'Date'
-                elif 'Date' in df.columns:
-                    df['Date'] = pd.to_datetime(df['Date'])
-                    df.set_index('Date', inplace=True)
+                # 确保date列为datetime类型
+                if 'date' not in df.columns and df.index.name == 'date':
+                    df.index.name = 'date'
+                elif 'date' in df.columns:
+                    df['date'] = pd.to_datetime(df['date'])
+                    df.set_index('date', inplace=True)
                 
                 self.logger.info(f"✅ 成功获取 {symbol} 的历史数据，共 {len(df)} 条记录")
                 return df
@@ -463,33 +468,33 @@ class StockDataFetcher:
                 return df
                 
             # 移动平均线
-            df['MA5'] = trend.sma_indicator(df['Close'], window=5)
-            df['MA10'] = trend.sma_indicator(df['Close'], window=10)
-            df['MA20'] = trend.sma_indicator(df['Close'], window=20)
-            df['MA60'] = trend.sma_indicator(df['Close'], window=60)
+            df['MA5'] = trend.sma_indicator(df['close'], window=5)
+            df['MA10'] = trend.sma_indicator(df['close'], window=10)
+            df['MA20'] = trend.sma_indicator(df['close'], window=20)
+            df['MA60'] = trend.sma_indicator(df['close'], window=60)
 
             # RSI
-            df['RSI'] = momentum.rsi(df['Close'], window=14)
+            df['RSI'] = momentum.rsi(df['close'], window=14)
 
             # MACD
-            macd = trend.MACD(df['Close'])
+            macd = trend.MACD(df['close'])
             df['MACD'] = macd.macd()
             df['MACD_signal'] = macd.macd_signal()
             df['MACD_histogram'] = macd.macd_diff()
 
             # 布林带
-            bollinger = volatility.BollingerBands(df['Close'])
+            bollinger = volatility.BollingerBands(df['close'])
             df['BB_upper'] = bollinger.bollinger_hband()
             df['BB_middle'] = bollinger.bollinger_mavg()
             df['BB_lower'] = bollinger.bollinger_lband()
 
             # KDJ指标
-            df['K'] = momentum.stoch(df['High'], df['Low'], df['Close'])
-            df['D'] = momentum.stoch_signal(df['High'], df['Low'], df['Close'])
+            df['K'] = momentum.stoch(df['high'], df['low'], df['close'])
+            df['D'] = momentum.stoch_signal(df['high'], df['low'], df['close'])
 
             # 成交量指标
-            df['Volume_MA5'] = trend.sma_indicator(df['Volume'], window=5)
-            df['Volume_ratio'] = df['Volume'] / df['Volume_MA5']
+            df['Volume_MA5'] = trend.sma_indicator(df['volume'], window=5)
+            df['Volume_ratio'] = df['volume'] / df['Volume_MA5']
             
             return df
             
@@ -507,7 +512,7 @@ class StockDataFetcher:
             latest = df.iloc[-1]
             
             return {
-                "price": latest['Close'],
+                "price": latest['close'],
                 "ma5": latest['MA5'],
                 "ma10": latest['MA10'], 
                 "ma20": latest['MA20'],
@@ -822,3 +827,16 @@ class StockDataFetcher:
         except:
             pass
         return 'N/A'
+
+    def get_stock_data(self, symbol, period):
+        """获取股票数据"""
+        stock_info = self.get_stock_info(symbol)
+        stock_data = self.get_stock_history_data(symbol, period)
+
+        if isinstance(stock_data, dict) and "error" in stock_data:
+            return stock_info, None, None
+
+        stock_data_with_indicators = self.calculate_technical_indicators(stock_data)
+        indicators = self.get_latest_indicators(stock_data_with_indicators)
+
+        return stock_info, stock_data_with_indicators, indicators

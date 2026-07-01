@@ -16,6 +16,33 @@ class TickFlowDataFetcher:
         self.logger = log_utils.get_logger(__name__)
         self.tf_free = TickFlow.free()
         self.logger.info("TickFlow 免费客户端初始化成功")
+
+    def convert_to_tickflow_code(self, symbol):
+        """
+        将6位股票代码转换为TickFlow格式（带市场后缀）
+        
+        Args:
+            symbol: 6位股票代码
+            
+        Returns:
+            str: TickFlow格式代码（如：000001.SH）
+        """
+        if not symbol or len(symbol) != 6:
+            return symbol
+        
+        # 根据代码判断市场
+        if symbol.startswith('6'):
+            # 上海主板
+            return f"{symbol}.SH"
+        elif symbol.startswith('0') or symbol.startswith('3'):
+            # 深圳主板和创业板
+            return f"{symbol}.SZ"
+        elif symbol.startswith('8') or symbol.startswith('4'):
+            # 北交所
+            return f"{symbol}.BJ"
+        else:
+            # 默认深圳
+            return f"{symbol}.SZ"
     
     def get_stock_basic_info(self, symbol):
         """
@@ -29,9 +56,10 @@ class TickFlowDataFetcher:
         """
         self.logger.debug(f"开始获取股票 {symbol} 的基本信息")
         info = {}
-        try:            
+        try:
+            tf_symbol = self.convert_to_tickflow_code(symbol)
             # 批量获取股票基础信息
-            stock_info = self.tf_free.instruments.batch(symbols=[symbol])
+            stock_info = self.tf_free.instruments.batch(symbols=[tf_symbol])
             
             if stock_info and len(stock_info) > 0:
                 item = stock_info[0]
@@ -99,9 +127,10 @@ class TickFlowDataFetcher:
             elif adjust == "":
                 kAdjust = "none"
 
+            tf_symbol = self.convert_to_tickflow_code(symbol)
             # 尝试获取日线数据
             hist_data_df = self.tf_free.klines.get(
-                symbol=symbol,
+                symbol=tf_symbol,
                 period="1d",        # 周期 1d日线 1w周 1M月
                 count=kCount,       # 获取K线数量
                 adjust=kAdjust,     # forward前复权 / backward后复权 / none不复权
@@ -157,7 +186,7 @@ if __name__ == '__main__':
     # 创建全局实例
     tickflow_fetcher = TickFlowDataFetcher()
     # 测试股票代码
-    test_symbol = "688549.SH"  # 中巨芯
+    test_symbol = "688549"  # 中巨芯
     
     # 1. 测试获取基本信息
     print(f"\n1. 获取 {test_symbol} 的基本信息:")
