@@ -289,6 +289,58 @@ class DataSourceManager:
         else:
             return None
 
+    # 获取资产负债表数据
+    def get_stock_financial_debt(self, symbol, indicator="按报告期"):
+        """
+        获取个股资产负债表数据
+        :param symbol: 股票代码
+        :param indicator: 指标; choice of {"按报告期", "按年度"}
+        """
+        df = None
+        df = self.akshare_fetcher.stock_financial_debt_ths(symbol, indicator)
+        if df is not None:
+            return df
+        else:
+            return None
+
+    # 获取利润表数据
+    def get_stock_financial_benefit(self, symbol, indicator="按报告期"):
+        """
+        获取个股利润表数据
+        :param symbol: 股票代码
+        :param indicator: 指标; choice of {"按报告期","按单季度", "按年度"}
+        """
+        df = None
+        df = self.akshare_fetcher.stock_financial_benefit_ths(symbol, indicator)
+        if df is not None:
+            return df
+        else:
+            return None
+
+    # 获取现金流量表数据
+    def get_stock_financial_cash(self, symbol, indicator="按报告期"):
+        """
+        获取个股现金流量表数据
+        :param symbol: 股票代码
+        :param indicator: 指标; choice of {"按报告期","按单季度", "按年度"}
+        """
+        df = None
+        df = self.akshare_fetcher.stock_financial_cash_ths(symbol, indicator)
+        if df is not None:
+            return df
+        else:
+            return None
+
+    # 获取主要财务指标数据
+    def get_stock_financial_main(self, symbol):
+        """
+        获取个股主要财务指标数据
+        :param symbol: 股票代码
+        """
+        financial_abstract = None
+        financial_abstract = self.akshare_fetcher.stock_financial_abstract_sina(symbol)               
+        return financial_abstract
+
 
 # 全局数据源管理器实例
 data_source_manager = DataSourceManager()

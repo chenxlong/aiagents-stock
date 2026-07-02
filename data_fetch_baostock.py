@@ -252,7 +252,7 @@ class BaostockDataFetcher:
             while (rs_basic.error_code == '0') & rs_basic.next():
                 # 获取一条记录，将记录合并在一起
                 data_list_basic.append(rs_basic.get_row_data())
-
+            
             df_basic = pd.DataFrame(data_list_basic, columns=rs_basic.fields)
             self.logger.info(f"[Baostock] 获取到基本信息:\n {df_basic} ")
 

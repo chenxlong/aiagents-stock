@@ -488,9 +488,10 @@ class StockDataFetcher:
             df['BB_middle'] = bollinger.bollinger_mavg()
             df['BB_lower'] = bollinger.bollinger_lband()
 
-            # KDJ指标
-            df['K'] = momentum.stoch(df['high'], df['low'], df['close'])
-            df['D'] = momentum.stoch_signal(df['high'], df['low'], df['close'])
+            # KDJ指标（A股常用参数：n=9, m1=3, m2=3）（西方技术分析常用参数：n=14, m1=3, m2=3）
+            df['K'] = momentum.stoch(df['high'], df['low'], df['close'], window=9)
+            df['D'] = momentum.stoch_signal(df['high'], df['low'], df['close'], window=9)
+            df['J'] = 3 * df['K'] - 2 * df['D']
 
             # 成交量指标
             df['Volume_MA5'] = trend.sma_indicator(df['volume'], window=5)
@@ -524,6 +525,7 @@ class StockDataFetcher:
                 "bb_lower": latest['BB_lower'],
                 "k_value": latest['K'],
                 "d_value": latest['D'],
+                "j_value": latest['J'],
                 "volume_ratio": latest['Volume_ratio']
             }
         except Exception as e:
@@ -554,72 +556,61 @@ class StockDataFetcher:
         }
         
         try:
-            # 1. 获取资产负债表  todo  stock_financial_abstract_ths 函数indicator参数使用不对（建议使用 按报告期，按单季度），应该按报告期、按年度、按单季度
-            try:
-                balance_sheet = ak.stock_financial_debt_ths(symbol=symbol, indicator="按报告期")
-                self.logger.info(f"获取到 {symbol} 的资产负债表:\n {balance_sheet}")
-                if balance_sheet is not None and not balance_sheet.empty:
-                    financial_data["balance_sheet"] = balance_sheet.head(8).to_dict('records')
-            except Exception as e:
-                self.logger.error(f"获取资产负债表失败: {e}")
-            
+            # 1. 获取资产负债表
+            balance_sheet = self.data_source_manager.get_stock_financial_debt(symbol=symbol, indicator="按报告期")
+            self.logger.info(f"获取到 {symbol} 的资产负债表:\n {balance_sheet}")
+            if balance_sheet is not None and not balance_sheet.empty:
+                financial_data["balance_sheet"] = balance_sheet.head(8).to_dict('records')
+
             # 2. 获取利润表
-            try:
-                income_statement = ak.stock_financial_benefit_ths(symbol=symbol, indicator="按报告期")
-                self.logger.info(f"获取到 {symbol} 的利润表:\n {income_statement}")
-                if income_statement is not None and not income_statement.empty:
-                    financial_data["income_statement"] = income_statement.head(8).to_dict('records')
-            except Exception as e:
-                self.logger.error(f"获取利润表失败: {e}")
+            income_statement = self.data_source_manager.get_stock_financial_benefit(symbol=symbol, indicator="按报告期")
+            self.logger.info(f"获取到 {symbol} 的利润表:\n {income_statement}")
+            if income_statement is not None and not income_statement.empty:
+                financial_data["income_statement"] = income_statement.head(8).to_dict('records')
             
             # 3. 获取现金流量表
-            try:
-                cash_flow = ak.stock_financial_cash_ths(symbol=symbol, indicator="按报告期")
-                self.logger.info(f"获取到 {symbol} 的现金流量表:\n {cash_flow}")
-                if cash_flow is not None and not cash_flow.empty:
-                    financial_data["cash_flow"] = cash_flow.head(8).to_dict('records')
-            except Exception as e:
-                self.logger.error(f"获取现金流量表失败: {e}")
+            cash_flow = self.data_source_manager.get_stock_financial_cash(symbol=symbol, indicator="按报告期")
+            self.logger.info(f"获取到 {symbol} 的现金流量表:\n {cash_flow}")
+            if cash_flow is not None and not cash_flow.empty:
+                financial_data["cash_flow"] = cash_flow.head(8).to_dict('records')
             
-            # 4. 获取主要财务指标 todo stock_financial_abstract_ths 替换了 stock_financial_abstract
-            try:
-                financial_abstract = ak.stock_financial_abstract(symbol=symbol)
-                self.logger.info(f"获取到 {symbol} 的主要财务指标:\n {financial_abstract}")
-                if financial_abstract is not None and not financial_abstract.empty:
-                    # 提取关键财务指标
-                    key_indicators = [
-                        '净资产收益率(ROE)', '总资产报酬率(ROA)', '销售毛利率', '销售净利率',
-                        '资产负债率', '流动比率', '速动比率', '存货周转率', '应收账款周转率',
-                        '总资产周转率', '营业收入同比增长', '净利润同比增长'
-                    ]
-                    
-                    # 筛选出包含关键指标的行
-                    indicator_rows = financial_abstract[financial_abstract['指标'].isin(key_indicators)]
-                    
-                    if not indicator_rows.empty:
-                        # 获取最新的报告期数据（第一列日期）
-                        date_columns = [col for col in financial_abstract.columns if col not in ['选项', '指标']]
-                        if date_columns:
-                            latest_date = date_columns[0]  # 最新日期列
-                            
-                            # 构建财务比率字典
-                            financial_ratios = {"报告期": latest_date}
-                            
-                            # 提取每个指标的最新值
-                            for _, row in indicator_rows.iterrows():
-                                indicator_name = row['指标']
-                                value = row.get(latest_date, 'N/A')
-                                if value is not None and not (isinstance(value, float) and pd.isna(value)):
-                                    try:
-                                        financial_ratios[indicator_name] = str(value)
-                                    except:
-                                        financial_ratios[indicator_name] = "N/A"
-                                else:
+            # 4. 获取主要财务指标
+            financial_abstract = self.data_source_manager.get_stock_financial_main(symbol=symbol)
+            self.logger.info(f"获取到 {symbol} 的主要财务指标:\n {financial_abstract}")
+            if financial_abstract is not None and not financial_abstract.empty:
+                # 提取关键财务指标
+                key_indicators = [
+                    '归母净利润', '营业总收入', '净利润','扣非净利润','商誉', '经营现金流量净额',
+                    '基本每股收益', '每股净资产', '每股现金流',
+                    '净资产收益率(ROE)', '总资产报酬率(ROA)', '毛利率','销售净利率',
+                    '资产负债率', '流动比率', '速动比率', '应收账款周转率', '存货周转率', '总资产周转率'
+                ]
+                
+                # 筛选出包含关键指标的行
+                indicator_rows = financial_abstract[financial_abstract['指标'].isin(key_indicators)]
+                
+                if not indicator_rows.empty:
+                    # 获取最新的报告期数据（第一列日期）
+                    date_columns = [col for col in financial_abstract.columns if col not in ['选项', '指标']]
+                    if date_columns:
+                        latest_date = date_columns[0]  # 最新日期列
+                        
+                        # 构建财务比率字典
+                        financial_ratios = {"报告期": latest_date}
+                        
+                        # 提取每个指标的最新值
+                        for _, row in indicator_rows.iterrows():
+                            indicator_name = row['指标']
+                            value = row.get(latest_date, 'N/A')
+                            if value is not None and not (isinstance(value, float) and pd.isna(value)):
+                                try:
+                                    financial_ratios[indicator_name] = str(value)
+                                except:
                                     financial_ratios[indicator_name] = "N/A"
-                            
-                            financial_data["financial_ratios"] = financial_ratios
-            except Exception as e:
-                self.logger.error(f"获取财务指标失败: {e}")
+                            else:
+                                financial_ratios[indicator_name] = "N/A"
+                        
+                        financial_data["financial_ratios"] = financial_ratios
             
             # 注意：季报数据现在由 quarterly_report_data.py 模块使用 akshare 获取（8期完整季报）
             # 不再使用问财获取季报，避免重复

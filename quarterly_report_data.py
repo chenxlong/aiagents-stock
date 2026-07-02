@@ -9,6 +9,7 @@ import io
 import warnings
 from datetime import datetime
 import akshare as ak
+from data_source_manager import data_source_manager
 import log_utils
 
 warnings.filterwarnings('ignore')
@@ -39,6 +40,7 @@ class QuarterlyReportDataFetcher:
         self.periods = 8  # 获取最近8期季报
         self.available = True
         self.logger = log_utils.get_logger(__name__)
+        self.data_source_manager = data_source_manager
         self.logger.info("✓ 季报数据获取器初始化成功（akshare数据源）")
     
     def get_quarterly_reports(self, symbol):
@@ -117,11 +119,11 @@ class QuarterlyReportDataFetcher:
 
         try:
             # stock_financial_report_sina - 新浪财经季度利润表
-            df = ak.stock_financial_report_sina(stock=symbol, symbol="利润表")
+            df = self.data_source_manager.get_financial_data(symbol=symbol, report_type="income")
             self.logger.debug(f"获取到利润表数据:\n {df}")
             
             if df is None or df.empty:
-                self.logger.info(f"   未找到利润表数据")
+                self.logger.info(f"未找到利润表数据")
                 return None
             
             # 获取最近8期
@@ -150,18 +152,18 @@ class QuarterlyReportDataFetcher:
             }
             
         except Exception as e:
-            self.logger.error(f"   获取利润表异常: {e}")
+            self.logger.error(f"获取利润表异常: {e}")
             return None
     
     def _get_balance_sheet(self, symbol):
         """获取资产负债表数据"""
         try:
             # stock_financial_report_sina - 新浪财经季度资产负债表
-            df = ak.stock_financial_report_sina(stock=symbol, symbol="资产负债表")
+            df = self.data_source_manager.get_financial_data(symbol=symbol, report_type="balance")
             self.logger.debug(f"获取到资产负债表数据:\n {df}")
             
             if df is None or df.empty:
-                self.logger.info(f"   未找到资产负债表数据")
+                self.logger.info(f"未找到资产负债表数据")
                 return None
             
             # 获取最近8期
@@ -190,18 +192,18 @@ class QuarterlyReportDataFetcher:
             }
             
         except Exception as e:
-            self.logger.error(f"   获取资产负债表异常: {e}")
+            self.logger.error(f"获取资产负债表异常: {e}")
             return None
     
     def _get_cash_flow(self, symbol):
         """获取现金流量表数据"""
         try:
             # stock_financial_report_sina - 新浪财经季度现金流量表
-            df = ak.stock_financial_report_sina(stock=symbol, symbol="现金流量表")
+            df = self.data_source_manager.get_financial_data(symbol=symbol, report_type="cashflow")
             self.logger.debug(f"获取到现金流量表数据:\n {df}")
             
             if df is None or df.empty:
-                self.logger.info(f"   未找到现金流量表数据")
+                self.logger.info(f"未找到现金流量表数据")
                 return None
             
             # 获取最近8期
@@ -230,14 +232,13 @@ class QuarterlyReportDataFetcher:
             }
             
         except Exception as e:
-            self.logger.error(f"   获取现金流量表异常: {e}")
+            self.logger.error(f"获取现金流量表异常: {e}")
             return None
     
     def _get_financial_indicators(self, symbol):
         """获取财务指标数据"""
         try:
-            # 使用stock_financial_abstract替代已失效的stock_financial_analysis_indicator
-            df = ak.stock_financial_abstract(symbol=symbol)
+            df = self.data_source_manager.get_stock_financial_main(symbol=symbol)
             self.logger.debug(f"获取到财务指标数据:\n {df}")
             
             if df is None or df.empty:
@@ -249,9 +250,10 @@ class QuarterlyReportDataFetcher:
             
             # 提取关键财务指标
             key_indicators = [
-                '净资产收益率(ROE)', '总资产报酬率(ROA)', '销售净利率', '销售毛利率',
-                '资产负债率', '流动比率', '速动比率', '应收账款周转率', '存货周转率',
-                '总资产周转率', '基本每股收益', '每股净资产', '每股现金流'
+                '归母净利润', '营业总收入', '净利润','扣非净利润','商誉', '经营现金流量净额',
+                '基本每股收益', '每股净资产', '每股现金流',
+                '净资产收益率(ROE)', '总资产报酬率(ROA)', '毛利率','销售净利率',
+                '资产负债率', '流动比率', '速动比率', '应收账款周转率', '存货周转率', '总资产周转率'
             ]
             
             # 筛选出包含关键指标的行
