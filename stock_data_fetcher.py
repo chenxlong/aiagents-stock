@@ -574,15 +574,16 @@ class StockDataFetcher:
             if cash_flow is not None and not cash_flow.empty:
                 financial_data["cash_flow"] = cash_flow.head(8).to_dict('records')
             
-            # 4. 获取主要财务指标
+            # 4. 获取主要财务指标 todo（这个和季度报告获取方式一样，要不要用同花顺的财务指标？？ ）
             financial_abstract = self.data_source_manager.get_stock_financial_main(symbol=symbol)
             self.logger.info(f"获取到 {symbol} 的主要财务指标:\n {financial_abstract}")
             if financial_abstract is not None and not financial_abstract.empty:
                 # 提取关键财务指标
                 key_indicators = [
                     '归母净利润', '营业总收入', '净利润','扣非净利润','商誉', '经营现金流量净额',
-                    '基本每股收益', '每股净资产', '每股现金流',
+                    '基本每股收益', '每股净资产', '每股现金流', '每股经营现金流',
                     '净资产收益率(ROE)', '总资产报酬率(ROA)', '毛利率','销售净利率',
+                    '总资产净利率_平均',
                     '资产负债率', '流动比率', '速动比率', '应收账款周转率', '存货周转率', '总资产周转率'
                 ]
                 
@@ -609,7 +610,7 @@ class StockDataFetcher:
                                     financial_ratios[indicator_name] = "N/A"
                             else:
                                 financial_ratios[indicator_name] = "N/A"
-                        
+
                         financial_data["financial_ratios"] = financial_ratios
             
             # 注意：季报数据现在由 quarterly_report_data.py 模块使用 akshare 获取（8期完整季报）

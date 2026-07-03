@@ -341,6 +341,79 @@ class DataSourceManager:
         financial_abstract = self.akshare_fetcher.stock_financial_abstract_sina(symbol)               
         return financial_abstract
 
+    # 获取大盘情绪指标
+    def get_stock_market_activity(self):
+        """
+        获取大盘情绪指标
+        :rtype: pandas.DataFrame
+                 item                value
+        0         上涨               3527.0
+        1         涨停                159.0
+        2       真实涨停                139.0
+        3   st st*涨停                 54.0
+        4         下跌               1584.0
+        5         跌停                 28.0
+        6       真实跌停                 25.0
+        7   st st*跌停                  5.0
+        8         平盘                 82.0
+        9         停牌                 11.0
+        10       活跃度               67.77%
+        11      统计日期  2026-07-03 15:00:00
+        """
+        market_sentiment_df = None
+        market_sentiment_df = self.akshare_fetcher.stock_market_activity()            
+        return market_sentiment_df
+
+
+    # 涨停数据
+    def get_stock_limit_up_data(self, date_str=""):
+        """
+        获取大盘涨停家数（akshare）
+        :return: 大盘涨停家数
+        :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        """
+        limit_up_df = None
+        if not date_str:
+            # 获取今日
+            date_str = datetime.now().strftime('%Y%m%d')
+
+        # 获取大盘涨停家数 
+        limit_up_df = self.akshare_fetcher.stock_limit_up_data(date_str)
+        
+        return limit_up_df
+
+    # 获取大盘跌停家数
+    def get_stock_limit_down_data(self, date_str=""):
+        """
+        获取大盘跌停家数（akshare）
+        :return: 大盘跌停家数
+        :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        """
+        limit_down_df = None
+        if not date_str:
+            # 获取今日
+            date_str = datetime.now().strftime('%Y%m%d')
+
+        # 获取大盘跌停家数 
+        limit_down_df = self.akshare_fetcher.stock_limit_down_data(date_str)
+        
+        return limit_down_df
+
+    # 融资融券数据
+    def get_stock_margin_trading_data(self, date_str=""):
+        """
+        获取融资融券数据（akshare）
+        :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        """
+        margin_trading_df = None
+        if not date_str:
+            # 获取今日
+            date_str = datetime.now().strftime('%Y%m%d')
+        # 获取个股融资融券数据 
+        margin_trading_df = self.akshare_fetcher.stock_margin_trading_data(date_str)
+        
+        return margin_trading_df
+
 
 # 全局数据源管理器实例
 data_source_manager = DataSourceManager()

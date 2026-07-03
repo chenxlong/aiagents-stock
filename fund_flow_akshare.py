@@ -45,6 +45,7 @@ class FundFlowAkshareDataFetcher:
         self.days = 30  # 获取最近30个交易日
         self.available = True
         self.logger = log_utils.get_logger(__name__)
+        self.data_source_manager = data_source_manager
         self.logger.info("[OK] 资金流向数据获取器初始化成功（akshare数据源）")
     
     def get_fund_flow_data(self, symbol):
@@ -115,92 +116,15 @@ class FundFlowAkshareDataFetcher:
         else:
             # 默认深圳
             return 'sz'
-    
-    def _get_individual_fund_flow_akshare(self, symbol, market):
-        """获取个股资金流向数据（akshare）"""
-        df = None
-        akshare_df = None
-        for retry_count in range(3):
-            try:
-                self.logger.info(f"[Akshare] 正在获取资金流向 (市场: {market})..." + (f" (第{retry_count+1}次)"))
-                
-                akshare_df = ak.stock_individual_fund_flow(stock=symbol, market=market)
-                self.logger.debug(f"   [Akshare] -资金流向原始数据: {akshare_df}")
-
-                if akshare_df is not None and not akshare_df.empty:
-                    self.logger.info(f"[Akshare] 获取到 {len(akshare_df)} 条资金流向数据")
-                    df = akshare_df
-                    break
-            except Exception as e:
-                self.logger.error(f"[Akshare] 获取失败: {e}")
-                if retry_count < 2:
-                    delay = (retry_count + 1) * 2
-                    self.logger.info(f"[Akshare] {delay}s 后重试...")
-                    time.sleep(delay)
-        return df
-    
-    def _get_individual_fund_flow_tushare(self, symbol, market):
-        """获取个股资金流向数据（tushare）"""
-        df = None
-        try:
-            self.logger.info(f"[Tushare] 正在获取资金流向数据（备用数据源）...")
-            ts_code = data_source_manager._convert_to_ts_code(symbol)
-            
-            # 计算日期范围（最近N个交易日）
-            end_date = datetime.now().strftime('%Y%m%d')
-            start_date = (datetime.now() - timedelta(days=self.days * 2)).strftime('%Y%m%d')
-            
-            # 获取资金流向数据
-            df = data_source_manager.tushare_api.moneyflow(
-                ts_code=ts_code,
-                start_date=start_date,
-                end_date=end_date
-            )
-            self.logger.info(f"[Tushare] -资金流向原始数据: {df}")
-            
-            if df is not None and not df.empty:
-                # 标准化列名以匹配akshare格式
-                df = df.rename(columns={
-                    'trade_date': '日期',
-                    'buy_sm_amount': '小单买入',
-                    'sell_sm_amount': '小单卖出',
-                    'buy_md_amount': '中单买入',
-                    'sell_md_amount': '中单卖出',
-                    'buy_lg_amount': '大单买入',
-                    'sell_lg_amount': '大单卖出',
-                    'buy_elg_amount': '超大单买入',
-                    'sell_elg_amount': '超大单卖出',
-                    'net_mf_amount': '净额'
-                })
-                
-                # 限制为最近N天
-                df = df.head(self.days)
-                self.logger.info(f"[Tushare] ✅ 成功获取 {len(df)} 条资金流向数据")
-            else:
-                self.logger.warning(f"[Tushare] ❌ 未找到资金流向数据")
-                return None
-        except Exception as te:
-            self.logger.error(f"[Tushare] ❌ 获取失败: {te}")
-            return None
-        return df
 
     def _get_individual_fund_flow(self, symbol, market):
-        """获取个股资金流向数据（支持akshare和tushare自动切换）"""
+        """获取个股资金流向数据"""
         try:
-            # 优先使用akshare获取资金流向数据
             self.logger.info(f"正在获取资金流向 (市场: {market})...")
-            df = self._get_individual_fund_flow_akshare(symbol, market)
+            df = self.data_source_manager.get_individual_fund_flow(symbol=symbol, market=market)
             
             if df is None or df.empty:
-                self.logger.info(f"[Akshare] 未找到资金流向数据，尝试备用数据源...")
-                # akshare失败，尝试tushare Todo: tushare_available 标志 没有了
-                if data_source_manager.tushare_available:
-                    df = self._get_individual_fund_flow_tushare(symbol, market)
-                    if df is None or df.empty:
-                        self.logger.warning(f"[Tushare] 未找到资金流向数据")
-                        return None
-                else:
-                    return None
+                return None
             
             # akshare 返回的数据是按时间正序排列（从旧到新），所以使用 tail() 获取最近N天的数据
             df = df.tail(self.days)

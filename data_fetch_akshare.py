@@ -502,6 +502,97 @@ class AkshareDataFetcher:
         
         return financial_abstract
 
+    # 获取大盘情绪指标
+    def stock_market_activity(self):
+        """
+        获取大盘情绪指标（akshare）
+        :return: 大盘情绪指标
+        :rtype: pandas.DataFrame
+                 item                value
+        0         上涨               3527.0
+        1         涨停                159.0
+        2       真实涨停                139.0
+        3   st st*涨停                 54.0
+        4         下跌               1584.0
+        5         跌停                 28.0
+        6       真实跌停                 25.0
+        7   st st*跌停                  5.0
+        8         平盘                 82.0
+        9         停牌                 11.0
+        10       活跃度               67.77%
+        11      统计日期  2026-07-03 15:00:00
+        """
+        market_sentiment_df = None
+        # 1. 获取大盘情绪指标 
+        try:
+            market_sentiment_df =ak.stock_market_activity_legu()
+            self.logger.info(f"获取到 {symbol} 的大盘情绪指标:\n {market_sentiment_df}")                
+        except Exception as e:
+            self.logger.error(f"获取大盘情绪指标失败: {e}")
+        
+        return market_sentiment_df
+
+    # 涨停数据
+    def stock_limit_up_data(self, date_str=""):
+        """
+        获取大盘涨停家数（akshare）
+        :return: 大盘涨停家数
+        :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        """
+        limit_up_df = None
+        if not date_str:
+            # 获取今日
+            date_str = datetime.now().strftime('%Y%m%d')
+        
+        try:
+            # 1. 获取大盘涨停家数 
+            limit_up_df = ak.stock_zt_pool_em(date=date_str)
+            self.logger.info(f"获取到 {date_str} 的大盘涨停家数:\n {limit_up_df}")                
+        except Exception as e:
+            self.logger.error(f"获取大盘涨停家数失败: {e}")
+        
+        return limit_up_df
+
+    # 跌停数据
+    def stock_limit_down_data(self, date_str=""):
+        """
+        获取大盘跌停家数（akshare）
+        :return: 大盘跌停家数
+        :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        """
+        limit_down_df = None
+        if not date_str:
+            # 获取今日
+            date_str = datetime.now().strftime('%Y%m%d')
+        
+        try:
+            # 1. 获取大盘跌停家数 
+            limit_down_df = ak.stock_zt_pool_dtgc_em(date=date_str)
+            self.logger.info(f"获取到 {date_str} 的大盘跌停家数:\n {limit_down_df}")                
+        except Exception as e:
+            self.logger.error(f"获取大盘跌停家数失败: {e}")
+        
+        return limit_down_df
+
+
+    # 融资融券数据
+    def stock_margin_trading_data(self, date_str=""):
+        """
+        获取个股融资融券数据（akshare）
+        :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        """
+        margin_trading_df = None
+        if not date_str:
+            # 获取今日
+            date_str = datetime.now().strftime('%Y%m%d')
+        # 1. 获取个股融资融券数据 
+        try:
+            margin_trading_df = ak.stock_margin_underlying_info_szse(date=date_str)
+            self.logger.info(f"获取到 {date_str} 的个股融资融券数据:\n {margin_trading_df}")
+        except Exception as e:
+            self.logger.error(f"获取个股融资融券数据失败: {e}")
+        
+        return margin_trading_df
 
 if __name__ == '__main__':
     # 测试代码
@@ -522,91 +613,96 @@ if __name__ == '__main__':
     # 测试股票代码
     test_symbol = "688549"  # 中巨芯
     
-    # 1. 测试获取基本信息(东方财富  
-    print(f"\n1. 获取 {test_symbol} 的基本信息:")
-    info = akshare_data_fetcher.get_stock_basic_info_akshare(test_symbol)
-    print(f"基本信息: {info}")
+    # # 1. 测试获取基本信息(东方财富  
+    # print(f"\n1. 获取 {test_symbol} 的基本信息:")
+    # info = akshare_data_fetcher.get_stock_basic_info_akshare(test_symbol)
+    # print(f"基本信息: {info}")
 
-    time.sleep(1)
+    # time.sleep(1)
     
-    # 2. 测试获取历史数据
-    print(f"\n2. 获取 {test_symbol} 的历史数据:")
-    hist_data = akshare_data_fetcher.get_stock_history_data_akshare(test_symbol,start_date="20260601",end_date="20260630",adjust="qfq")
-    print(f"历史数据形状: {hist_data.shape}")
-    if not hist_data.empty:
-        print(f"最近5天数据:\n{hist_data.tail()}")
+    # # 2. 测试获取历史数据
+    # print(f"\n2. 获取 {test_symbol} 的历史数据:")
+    # hist_data = akshare_data_fetcher.get_stock_history_data_akshare(test_symbol,start_date="20260601",end_date="20260630",adjust="qfq")
+    # print(f"历史数据形状: {hist_data.shape}")
+    # if not hist_data.empty:
+    #     print(f"最近5天数据:\n{hist_data.tail()}")
 
-    time.sleep(1)
+    # time.sleep(1)
     
-    # 3. 测试获取实时数据
-    print(f"\n3. 获取 {test_symbol} 的实时信息:")
-    realtime = akshare_data_fetcher.get_stock_realtime_info_sina(test_symbol)
-    print(f"实时信息: {realtime}")
+    # # 3. 测试获取实时数据
+    # print(f"\n3. 获取 {test_symbol} 的实时信息:")
+    # realtime = akshare_data_fetcher.get_stock_realtime_info_sina(test_symbol)
+    # print(f"实时信息: {realtime}")
 
-    time.sleep(1)
+    # time.sleep(1)
 
-    # 4. 可用，但是太慢，全市场的快照实时行情数据 测试获取实时数据(东方财富)
-    print(f"\n4. 获取 {test_symbol} 的实时信息:")
-    realtime = akshare_data_fetcher.get_realtime_quotes_akshare(test_symbol)
-    print(f"实时信息: {realtime}")
+    # # 4. 可用，但是太慢，全市场的快照实时行情数据 测试获取实时数据(东方财富)
+    # print(f"\n4. 获取 {test_symbol} 的实时信息:")
+    # realtime = akshare_data_fetcher.get_realtime_quotes_akshare(test_symbol)
+    # print(f"实时信息: {realtime}")
 
-    time.sleep(2)
+    # time.sleep(2)
     
-    # 5. 个股资金流向
-    print(f"\n5. 获取 {test_symbol} 的资金流向:")
-    fund_flow = akshare_data_fetcher.get_individual_fund_flow_akshare(test_symbol, market="sh")
-    print(f"资金流向: {fund_flow}")
+    # # 5. 个股资金流向
+    # print(f"\n5. 获取 {test_symbol} 的资金流向:")
+    # fund_flow = akshare_data_fetcher.get_individual_fund_flow_akshare(test_symbol, market="sh")
+    # print(f"资金流向: {fund_flow}")
 
-    time.sleep(2)
+    # time.sleep(2)
 
-    # 6. 个股财务数据
-    print(f"\n6. 获取 {test_symbol} 的财务数据:")
-    for report_type in ['income', 'balance', 'cashflow']:
-        financial_data = akshare_data_fetcher.get_financial_data_akshare(test_symbol, report_type=report_type)
-        print(f"{report_type}财务数据: {financial_data}")
+    # # 6. 个股财务数据
+    # print(f"\n6. 获取 {test_symbol} 的财务数据:")
+    # for report_type in ['income', 'balance', 'cashflow']:
+    #     financial_data = akshare_data_fetcher.get_financial_data_akshare(test_symbol, report_type=report_type)
+    #     print(f"{report_type}财务数据: {financial_data}")
     
-    time.sleep(2)
+    # time.sleep(2)
 
-    # "市盈率(TTM)", "市盈率(静)", "市净率", "市现率"
-    test_indicator = "市盈率(TTM)"
-    test_period = "近一年"
-    # 7. 个股估值数据
-    print(f"\n7. 获取 {test_symbol} 的估值数据:")
-    valuation_data = akshare_data_fetcher.get_valuation_value_akshare(test_symbol, indicator=test_indicator, period=test_period)
-    print(f"估值数据: {valuation_data}")
+    # # "市盈率(TTM)", "市盈率(静)", "市净率", "市现率"
+    # test_indicator = "市盈率(TTM)"
+    # test_period = "近一年"
+    # # 7. 个股估值数据
+    # print(f"\n7. 获取 {test_symbol} 的估值数据:")
+    # valuation_data = akshare_data_fetcher.get_valuation_value_akshare(test_symbol, indicator=test_indicator, period=test_period)
+    # print(f"估值数据: {valuation_data}")
 
-    time.sleep(2)
+    # time.sleep(2)
     
-    # 8. 个股主要财务指标
-    print(f"\n8. 获取 {test_symbol} 的主要财务指标:")
-    financial_ratios = akshare_data_fetcher.stock_financial_abstract_ths(test_symbol)
-    print(f"主要财务指标: {financial_ratios}")
-    time.sleep(2)
+    # # 8. 个股主要财务指标
+    # print(f"\n8. 获取 {test_symbol} 的主要财务指标:")
+    # financial_ratios = akshare_data_fetcher.stock_financial_abstract_ths(test_symbol)
+    # print(f"主要财务指标: {financial_ratios}")
+    # time.sleep(2)
 
-    # 9. 个股主要财务指标(同花顺-负债表)
-    print(f"\n9. 获取 {test_symbol} 的主要财务指标(同花顺-负债表):")
-    financial_ratios = akshare_data_fetcher.stock_financial_debt_ths(test_symbol)
-    print(f"主要财务指标(同花顺-负债表): {financial_ratios}")
-    time.sleep(2)
+    # # 9. 个股主要财务指标(同花顺-负债表)
+    # print(f"\n9. 获取 {test_symbol} 的主要财务指标(同花顺-负债表):")
+    # financial_ratios = akshare_data_fetcher.stock_financial_debt_ths(test_symbol)
+    # print(f"主要财务指标(同花顺-负债表): {financial_ratios}")
+    # time.sleep(2)
 
-    # 10. 个股主要财务指标(同花顺-利润表)
-    print(f"\n10. 获取 {test_symbol} 的主要财务指标(同花顺-利润表):")
-    financial_ratios = akshare_data_fetcher.stock_financial_benefit_ths(test_symbol)
-    print(f"主要财务指标(同花顺-利润表): {financial_ratios}")
-    time.sleep(2)
+    # # 10. 个股主要财务指标(同花顺-利润表)
+    # print(f"\n10. 获取 {test_symbol} 的主要财务指标(同花顺-利润表):")
+    # financial_ratios = akshare_data_fetcher.stock_financial_benefit_ths(test_symbol)
+    # print(f"主要财务指标(同花顺-利润表): {financial_ratios}")
+    # time.sleep(2)
     
-    # 11. 个股主要财务指标(同花顺-现金流表)
-    print(f"\n11. 获取 {test_symbol} 的主要财务指标(同花顺-现金流表):")
-    financial_ratios = akshare_data_fetcher.stock_financial_cash_ths(test_symbol)
-    print(f"主要财务指标(同花顺-现金流表): {financial_ratios}")
-    time.sleep(2)
+    # # 11. 个股主要财务指标(同花顺-现金流表)
+    # print(f"\n11. 获取 {test_symbol} 的主要财务指标(同花顺-现金流表):")
+    # financial_ratios = akshare_data_fetcher.stock_financial_cash_ths(test_symbol)
+    # print(f"主要财务指标(同花顺-现金流表): {financial_ratios}")
+    # time.sleep(2)
 
-    # 12. 获取主要财务指标（新浪财经-财务报表-关键指标）
-    print(f"\n12. 获取 {test_symbol} 的主要财务指标（新浪财经-财务报表-关键指标）:")
-    financial_abstract = akshare_data_fetcher.stock_financial_abstract_sina(test_symbol)
-    print(f"主要财务指标（新浪财经-财务报表-关键指标）: {financial_abstract}")
-    time.sleep(2)
+    # # 12. 获取主要财务指标（新浪财经-财务报表-关键指标）
+    # print(f"\n12. 获取 {test_symbol} 的主要财务指标（新浪财经-财务报表-关键指标）:")
+    # financial_abstract = akshare_data_fetcher.stock_financial_abstract_sina(test_symbol)
+    # print(f"主要财务指标（新浪财经-财务报表-关键指标）: {financial_abstract}")
+    # time.sleep(2)
     
+    # 13. 获取大盘情绪指标
+    print(f"\n13. 获取 {test_symbol} 的大盘情绪指标:")
+    market_activity_df = akshare_data_fetcher.stock_market_activity(test_symbol)
+    print(f"大盘情绪指标: {market_activity_df}")
+    time.sleep(2)
 
     print("\n" + "=" * 50)
     print("测试完成")

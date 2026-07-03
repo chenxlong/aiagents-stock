@@ -156,7 +156,7 @@ entry_min = positions.get("entry_zone_min")            # 已废弃
 
 ```python
 # ❌ 错误做法
-from stock_data import StockDataFetcher
+from stock_data_fetcher import StockDataFetcher
 from ai_agents import StockAnalysisAgents
 
 fetcher = StockDataFetcher()
