@@ -399,21 +399,66 @@ class DataSourceManager:
         
         return limit_down_df
 
-    # 融资融券数据
+    # 融资融券标的数据
     def get_stock_margin_trading_data(self, date_str=""):
         """
-        获取融资融券数据（akshare）
+        融资融券标的数据
         :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
         """
         margin_trading_df = None
         if not date_str:
             # 获取今日
             date_str = datetime.now().strftime('%Y%m%d')
-        # 获取个股融资融券数据 
-        margin_trading_df = self.akshare_fetcher.stock_margin_trading_data(date_str)
-        
+        # 获取融资融券标的数据 （深市）
+        margin_trading_df = self.akshare_fetcher.stock_margin_trading_data_szse(date_str)
+
+        # Todo 未测试 获取沪市融资融券标的信息
+        # 获取融资融券标的数据 （沪市）
+        margin_trading_df_sh = self.akshare_fetcher.stock_margin_trading_data_sh(date_str)
+        # 合并深市和沪市的融资融券标的数据
+        margin_trading_df = pd.concat([margin_trading_df, margin_trading_df_sh], axis=0)
+
         return margin_trading_df
 
+    # 上海证券交易所-融资融券数据-融资融券明细（沪市）
+    def get_stock_margin_detail_data_sh(self, date_str=""):
+        """
+        上海证券交易所-融资融券数据-融资融券明细（沪市）
+        :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        """
+        margin_detail_df_sh = None
+        if not date_str:
+            # 获取今日
+            date_str = datetime.now().strftime('%Y%m%d')
+        # 获取融资融券标的数据 （沪市）
+        margin_detail_df_sh = self.akshare_fetcher.stock_margin_detail_data_sh(date_str)
+        return margin_detail_df_sh
+    
+    # 上海证券交易所-融资融券数据-融资融券明细（深市）
+    def get_stock_margin_detail_data_sz(self, date_str=""):
+        """
+        上海证券交易所-融资融券数据-融资融券明细（深市）
+        :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        """
+        margin_detail_df_sz = None
+        if not date_str:
+            # 获取今日
+            date_str = datetime.now().strftime('%Y%m%d')
+        # 获取融资融券标的数据 （深市）
+        margin_detail_df_sz = self.akshare_fetcher.stock_margin_detail_data_sz(date_str)
+        return margin_detail_df_sz
+    
+
+    # 个股新闻（东方财富）
+    def get_stock_news(self, symbol):
+        """
+        获取股票的新闻数据（东方财富）
+        :param symbol: 股票代码，例如 "688549"
+        :rtype: pandas.DataFrame
+        返回值例子：
+        """
+        news_items = self.akshare_fetcher.get_stock_news_from_em(symbol)
+        return news_items
 
 # 全局数据源管理器实例
 data_source_manager = DataSourceManager()

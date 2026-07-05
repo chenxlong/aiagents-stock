@@ -31,6 +31,7 @@ class AkshareDataFetcher:
     def __init__(self):
         self.logger = log_utils.get_logger(__name__)
         self.days = 30  # 获取最近30个交易日
+        self.max_items = 30  # 最多获取的新闻数量
         self.logger.info("AkShare 免费客户端初始化成功")
 
     def _convert_to_tx_code(self, symbol):
@@ -538,6 +539,10 @@ class AkshareDataFetcher:
         获取大盘涨停家数（akshare）
         :return: 大盘涨停家数
         :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        :rtype: pandas.DataFrame
+        返回值例子：
+            序号      代码    名称        涨跌幅     最新价         成交额          流通市值           总市值        换手率       封板资金  首次封板时间  最后封板时间  炸板次数  涨停统计  连板数   所属行业
+            1  000595  宝塔实业  10.052910    6.24    94916640  7.105216e+09  7.105216e+09   1.335873   93156960  092500  092500     0   2/2    2     电力
         """
         limit_up_df = None
         if not date_str:
@@ -546,6 +551,7 @@ class AkshareDataFetcher:
         
         try:
             # 1. 获取大盘涨停家数 
+            # 返回列信息：序号      代码    名称        涨跌幅     最新价         成交额          流通市值           总市值        换手率       封板资金  首次封板时间  最后封板时间  炸板次数  涨停统计  连板数   所属行业
             limit_up_df = ak.stock_zt_pool_em(date=date_str)
             self.logger.info(f"获取到 {date_str} 的大盘涨停家数:\n {limit_up_df}")                
         except Exception as e:
@@ -559,6 +565,10 @@ class AkshareDataFetcher:
         获取大盘跌停家数（akshare）
         :return: 大盘跌停家数
         :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        :rtype: pandas.DataFrame
+        返回值例子：
+             序号      代码    名称        涨跌幅    最新价          成交额          流通市值           总市值        动态市盈率        换手率        封单资金  最后封板时间       板上成交额  连续跌停  开板次数  所属行业
+             1  000890   法尔胜  -9.977827   8.12    262807097  3.406267e+09  3.406372e+09   -92.704613   7.649436     2385656  132651   160601391     1    40  环保设备
         """
         limit_down_df = None
         if not date_str:
@@ -575,24 +585,205 @@ class AkshareDataFetcher:
         return limit_down_df
 
 
-    # 融资融券数据
-    def stock_margin_trading_data(self, date_str=""):
+    # 融资融券标的信息（深市）
+    def stock_margin_trading_data_szse(self, date_str=""):
         """
-        获取个股融资融券数据（akshare）
+        获取融资融券标的信息（akshare）
         :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        :rtype: pandas.DataFrame
+        返回值例子：
+            证券代码            证券简称 融资标的 融券标的 当日可融资 当日可融券 融券卖出价格限制 涨跌幅限制
+            000001            平安银行    Y    Y     Y     Y        Y   10%
         """
         margin_trading_df = None
         if not date_str:
             # 获取今日
             date_str = datetime.now().strftime('%Y%m%d')
-        # 1. 获取个股融资融券数据 
+        # 1. 获取融资融券标的信息
         try:
             margin_trading_df = ak.stock_margin_underlying_info_szse(date=date_str)
-            self.logger.info(f"获取到 {date_str} 的个股融资融券数据:\n {margin_trading_df}")
+            self.logger.info(f"获取到 {date_str} 融资融券标的信息:\n {margin_trading_df}")
         except Exception as e:
-            self.logger.error(f"获取个股融资融券数据失败: {e}")
+            self.logger.error(f"获取融资融券标的信息失败: {e}")
         
         return margin_trading_df
+    
+    # 融资融券标的信息（沪市）
+    def stock_margin_trading_data_sh(self, date_str=""):
+        """
+        获取融资融券标的信息（沪市）
+        :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        :rtype: pandas.DataFrame
+        返回值例子：
+            证券代码            证券简称 融资标的 融券标的 当日可融资 当日可融券 融券卖出价格限制 涨跌幅限制
+            000001            平安银行    Y    Y     Y     Y        Y   10%
+        """
+        margin_trading_df = None
+        if not date_str:
+            # 获取今日
+            date_str = datetime.now().strftime('%Y%m%d')
+        # 1. 获取融资融券标的信息
+        try:
+            # Todo 未测试 获取沪市融资融券标的信息
+            # 返回列信息：证券代码 证券简称 融资比例 融券比例
+            # 100001 50ETF 0.000000 0.000000
+            # 100002 50ETF 0.000000 0.00
+            # 10
+            margin_trading_df = ak.stock_margin_ratio_pa(symbol="沪市", date=date_str)
+            self.logger.info(f"获取到 {date_str} 融资融券标的信息:\n {margin_trading_df}")
+        except Exception as e:
+            self.logger.error(f"获取融资融券标的信息失败: {e}")
+        
+        return margin_trading_df
+    
+
+    # 上海证券交易所-融资融券数据-融资融券明细（沪市）
+    def stock_margin_detail_data_sh(self, date_str=""):
+        """
+        获取上海证券交易所-融资融券数据-融资融券明细（沪市）
+        :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        :rtype: pandas.DataFrame
+        返回值例子：
+            信用交易日期  标的证券代码    标的证券简称         融资余额       融资买入额       融资偿还额       融券余量    融券卖出量    融券偿还量
+            20260703  510050     50ETF   1492969419    29753519    95420218   37235940  1179400  1410900
+        """
+        margin_trading_df = None
+        if not date_str:
+            # 获取今日
+            date_str = datetime.now().strftime('%Y%m%d')
+        # 1. 获取上海证券交易所-融资融券数据-融资融券明细
+        try:
+            margin_trading_df = ak.stock_margin_detail_sse(date=date_str)
+            self.logger.info(f"获取到 {date_str} 沪市融资融券明细:\n {margin_trading_df}")
+        except Exception as e:
+            self.logger.error(f"获取沪市融资融券明细失败: {e}")
+        
+        return margin_trading_df
+    
+    # 深圳证券交易所-融资融券数据-融资融券明细（深市）
+    def stock_margin_detail_data_sz(self, date_str=""):
+        """
+        获取深圳证券交易所-融资融券数据-融资融券明细（深市）
+        :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        :rtype: pandas.DataFrame
+        返回值例子：
+            证券代码            证券简称       融资买入额         融资余额    融券卖出量       融券余量       融券余额       融资融券余额
+            000001            平安银行    95032872   5327610410    53400    1697500   17450300   5345060710
+
+        """
+        margin_trading_df = None
+        if not date_str:
+            # 获取今日
+            date_str = datetime.now().strftime('%Y%m%d')
+        # 1. 获取深圳证券交易所-融资融券数据-融资融券明细
+        try:
+            margin_trading_df = ak.stock_margin_detail_szse(date=date_str)
+            self.logger.info(f"获取到 {date_str} 深市融资融券明细:\n {margin_trading_df}")
+
+            if margin_trading_df is None or margin_trading_df.empty:
+                self.logger.warning(f"{date_str} 的融资融券明细为空（可能是非交易日），尝试获取前一交易日数据")
+                try:
+                    date_obj = datetime.strptime(date_str, '%Y%m%d')
+                    for i in range(1, 5):
+                        prev_date = (date_obj - timedelta(days=i)).strftime('%Y%m%d')
+                        margin_trading_df = ak.stock_margin_detail_szse(date=prev_date)
+                        if margin_trading_df is not None and not margin_trading_df.empty:
+                            self.logger.info(f"获取到 {prev_date} 深市融资融券明细（替代{date_str}）:\n {margin_trading_df}")
+                            break
+
+                        if i == 4:
+                            self.logger.error(f"获取前交易日深市融资融券明细失败，尝试次数超过4次")
+                except Exception as e2:
+                    self.logger.error(f"获取前交易日深市融资融券明细失败: {e2}")
+        except Exception as e:
+            self.logger.error(f"获取深市融资融券明细失败: {e}")
+            import traceback
+            self.logger.error(f"完整错误堆栈:\n{traceback.format_exc()}")
+        
+        return margin_trading_df
+
+    # 深圳证券交易所-融资融券汇总（深市）
+    def stock_margin_szse(self, date_str=""):
+        """
+        获取深圳证券交易所-融资融券汇总（深市）
+        :param date_str: 日期字符串，格式为YYYYMMDD，默认当前日期
+        :rtype: pandas.DataFrame
+        返回值例子：
+            融资买入额      融资余额  融券卖出量  融券余量   融券余额    融资融券余额
+            1642.67  14761.73   0.31  8.98  77.51  14839.25
+        """
+        margin_trading_df = None
+        if not date_str:
+            date_str = datetime.now().strftime('%Y%m%d')
+
+        try:
+            margin_trading_df = ak.stock_margin_szse(date=date_str)
+            self.logger.info(f"获取到 {date_str} 的融资融券汇总:\n {margin_trading_df}")
+        except ValueError as e:
+            if "Length mismatch" in str(e):
+                self.logger.warning(f"{date_str} 的融资融券汇总为空（可能是非交易日），尝试获取前一交易日数据")
+                try:
+                    date_obj = datetime.strptime(date_str, '%Y%m%d')
+                    for i in range(1, 5):
+                        prev_date = (date_obj - pd.Timedelta(days=i)).strftime('%Y%m%d')
+                        margin_trading_df = ak.stock_margin_szse(date=prev_date)
+                        if margin_trading_df is not None and not margin_trading_df.empty:
+                            self.logger.info(f"获取到 {prev_date} 的融资融券汇总（替代{date_str}）:\n {margin_trading_df}")
+                            break
+                except Exception as e2:
+                    self.logger.error(f"获取前一交易日融资融券汇总失败: {e2}")
+            else:
+                self.logger.error(f"获取融资融券汇总失败: {e}")
+        except Exception as e:
+            self.logger.error(f"获取融资融券汇总失败: {e}")
+            import traceback
+            self.logger.error(f"完整错误堆栈:\n{traceback.format_exc()}")
+        
+        return margin_trading_df
+
+    # 个股新闻
+    def get_stock_news_from_em(self, symbol):
+        """
+        获取股票的新闻数据（东方财富）
+        :param symbol: 股票代码，例如 "688549"
+        :rtype: pandas.DataFrame
+        返回值例子：
+            新闻标题  新闻链接  新闻时间
+            1  https://www.sina.com.cn/stock/688549/20260630/123456.html  2026-06-30 10:00:00
+        """
+        news_items = []
+            
+        # 尝试获取个股新闻（东方财富）
+        try:
+            df = ak.stock_news_em(symbol=symbol)
+            self.logger.info(f"✓ 从东方财富获取到 {symbol} 的新闻，共 {len(df)} 条，数据:\n{df}")
+
+            if df is not None and not df.empty:                
+                # 处理DataFrame，提取新闻
+                for idx, row in df.head(self.max_items).iterrows():
+                    item = {'source': '东方财富'}
+                    
+                    # 提取所有列数据
+                    for col in df.columns:
+                        value = row.get(col)
+                        
+                        # 跳过空值
+                        if value is None or (isinstance(value, float) and pd.isna(value)):
+                            continue
+                        # 保存字段
+                        try:
+                            item[col] = str(value)
+                        except:
+                            item[col] = "无法解析"
+                    
+                    if len(item) > 1:  # 如果有数据才添加
+                        news_items.append(item)
+        
+        except Exception as e:
+            self.logger.warning(f" ⚠ 从东方财富获取失败: {e}")
+
+        return news_items
+
 
 if __name__ == '__main__':
     # 测试代码
@@ -698,11 +889,51 @@ if __name__ == '__main__':
     # print(f"主要财务指标（新浪财经-财务报表-关键指标）: {financial_abstract}")
     # time.sleep(2)
     
-    # 13. 获取大盘情绪指标
-    print(f"\n13. 获取 {test_symbol} 的大盘情绪指标:")
-    market_activity_df = akshare_data_fetcher.stock_market_activity(test_symbol)
-    print(f"大盘情绪指标: {market_activity_df}")
+    # # 13. 获取大盘情绪指标
+    # print(f"\n13. 获取 {test_symbol} 的大盘情绪指标:")
+    # market_activity_df = akshare_data_fetcher.stock_market_activity(test_symbol)
+    # print(f"大盘情绪指标: {market_activity_df}")
+    # time.sleep(2)
+
+    # # 14. 涨停数据
+    # print(f"\n14. 获取 {test_symbol} 的涨停数据:")
+    # data_str = "20260703"
+    # limit_up_data = akshare_data_fetcher.stock_limit_up_data(data_str)
+    # print(f"涨停数据: {limit_up_data}")
+    # time.sleep(2)
+
+    # # 15. 跌停数据
+    # print(f"\n15. 获取 {test_symbol} 的跌停数据:")
+    # limit_down_data = akshare_data_fetcher.stock_limit_down_data(data_str)
+    # print(f"跌停数据: {limit_down_data}")
+    # time.sleep(2)
+
+    # # 16. 融资融券标的信息
+    # print(f"\n16. 获取 {test_symbol} 的融资融券标的信息:")
+    # margin_trading_data = akshare_data_fetcher.stock_margin_trading_data(data_str)
+    # print(f"融资融券标的信息: {margin_trading_data}")
+    # time.sleep(2)
+
+    # 17. 融资融券明细（沪市）
+    data_str = "20260703"
+    # print(f"\n17. 获取 {test_symbol} 的融资融券明细（沪市）:")
+    # margin_trading_data_sh = akshare_data_fetcher.stock_margin_detail_data_sh(data_str)
+    # print(f"融资融券明细（沪市）: {margin_trading_data_sh}")
+    # time.sleep(2)
+
+    #18. 融资融券明细（深市） 空数据
+    print(f"\n18. 获取 {test_symbol} 的融资融券明细（深市）:")
+    margin_trading_data_sz = akshare_data_fetcher.stock_margin_detail_data_sz(data_str)
+    print(f"融资融券明细（深市）: {margin_trading_data_sz}")
     time.sleep(2)
+
+    # # 19. 融资融券汇总（深市）
+    # print(f"\n19. 获取 {test_symbol} 的融资融券汇总（深市）:")
+    # margin_trading_data_szse = akshare_data_fetcher.stock_margin_szse(data_str)
+    # print(f"融资融券汇总（深市）: {margin_trading_data_szse}")
+    # time.sleep(2)
+
+
 
     print("\n" + "=" * 50)
     print("测试完成")

@@ -8,6 +8,7 @@ import sys
 import io
 import warnings
 from datetime import datetime, timedelta
+from data_source_manager import data_source_manager
 import akshare as ak
 import log_utils
 
@@ -33,13 +34,13 @@ _setup_stdout_encoding()
 
 
 class QStockNewsDataFetcher:
-    """新闻数据获取类（使用akshare作为数据源）"""
+    """新闻数据获取类"""
     
     def __init__(self):
         self.max_items = 30  # 最多获取的新闻数量
         self.available = True
         self.logger = log_utils.get_logger(__name__)
-        self.logger.info("✓ 新闻数据获取器初始化成功（akshare数据源）")
+        self.logger.info("✓ 新闻数据获取器初始化成功")
     
     def get_stock_news(self, symbol):
         """
@@ -71,7 +72,7 @@ class QStockNewsDataFetcher:
         
         try:
             # 获取新闻数据
-            self.logger.info(f"📰 正在使用qstock获取 {symbol} 的最新新闻...")
+            self.logger.info(f"📰 正在获取 {symbol} 的最新新闻...")
             news_data = self._get_news_data(symbol)
             
             if news_data:
@@ -93,91 +94,20 @@ class QStockNewsDataFetcher:
         return symbol.isdigit() and len(symbol) == 6
     
     def _get_news_data(self, symbol):
-        """获取新闻数据（使用akshare）"""
+        """获取新闻数据"""
         try:
-            self.logger.info(f"   使用 akshare 获取新闻...")
-            
+            self.logger.info(f"获取新闻...")
             news_items = []
-            
-            # 方法1: 尝试获取个股新闻（东方财富）
-            try:
-                # stock_news_em(symbol="600519") - 东方财富个股新闻
-                df = ak.stock_news_em(symbol=symbol)
-                
-                if df is not None and not df.empty:
-                    self.logger.info(f"   ✓ 从东方财富获取到 {len(df)} 条新闻")
-                    
-                    # 处理DataFrame，提取新闻
-                    for idx, row in df.head(self.max_items).iterrows():
-                        item = {'source': '东方财富'}
-                        
-                        # 提取所有列
-                        for col in df.columns:
-                            value = row.get(col)
-                            
-                            # 跳过空值
-                            if value is None or (isinstance(value, float) and pd.isna(value)):
-                                continue
-                            
-                            # 保存字段
-                            try:
-                                item[col] = str(value)
-                            except:
-                                item[col] = "无法解析"
-                        
-                        if len(item) > 1:  # 如果有数据才添加
-                            news_items.append(item)
-            
-            except Exception as e:
-                self.logger.warning(f"   ⚠ 从东方财富获取失败: {e}")
-            
-            # 方法2: 如果没有获取到，尝试获取新浪财经新闻
-            if not news_items:
-                try:
-                    # stock_zh_a_spot_em() - 获取股票信息，包含代码和名称
-                    df_info = ak.stock_zh_a_spot_em()
-                    
-                    # 查找股票名称
-                    stock_name = None
-                    if df_info is not None and not df_info.empty:
-                        match = df_info[df_info['代码'] == symbol]
-                        if not match.empty:
-                            stock_name = match.iloc[0]['名称']
-                            self.logger.info(f"   找到股票名称: {stock_name}")
-                    
-                    # 使用股票名称搜索新闻
-                    if stock_name:
-                        # stock_news_sina - 新浪财经新闻
-                        try:
-                            df = ak.stock_news_sina(symbol=stock_name)
-                            if df is not None and not df.empty:
-                                self.logger.info(f"   ✓ 从新浪财经获取到 {len(df)} 条新闻")
-                                
-                                for idx, row in df.head(self.max_items).iterrows():
-                                    item = {'source': '新浪财经'}
-                                    
-                                    for col in df.columns:
-                                        value = row.get(col)
-                                        if value is None or (isinstance(value, float) and pd.isna(value)):
-                                            continue
-                                        try:
-                                            item[col] = str(value)
-                                        except:
-                                            item[col] = "无法解析"
-                                    
-                                    if len(item) > 1:
-                                        news_items.append(item)
-                        except:
-                            pass
-                
-                except Exception as e:
-                    self.logger.warning(f"   ⚠ 从新浪财经获取失败: {e}")
-            
-            # 方法3: 尝试获取财联社电报
+            news_items = data_source_manager.get_stock_news(symbol)
+
+            # 方法3: todo 尝试获取财联社电报
             if not news_items or len(news_items) < 5:
                 try:
-                    # stock_news_cls() - 财联社电报
-                    df = ak.stock_news_cls()
+                    # stock_info_global_sina - 新浪财经新闻
+                    df = ak.stock_info_global_sina()
+
+                    #  财联社电报
+                    df = ak.stock_info_global_cls()
                     
                     if df is not None and not df.empty:
                         # 筛选包含股票代码或名称的新闻

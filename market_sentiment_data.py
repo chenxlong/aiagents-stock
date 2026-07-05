@@ -613,48 +613,79 @@ class MarketSentimentDataFetcher:
         """获取融资融券数据"""
         self.logger.info(f"正在获取 {symbol} 的个股融资融券数据...")
         try:
-            # 获取个股融资融券数据（尝试多个API）
-            try:
-                # 方法1：获取沪深融资融券明细
-                df = data_source_manager.get_stock_margin_trading_data(date=datetime.now().strftime('%Y%m%d'))
-                if df is not None and not df.empty:
-                    stock_data = df[df['证券代码'] == symbol]
-                    if not stock_data.empty:
-                        latest = stock_data.iloc[0]
-                        
-                        margin_balance = latest.get('融资余额', 0)
-                        short_balance = latest.get('融券余额', 0)
-                        
-                        # 解读融资融券
-                        interpretation = []
-                        if margin_balance > short_balance * 10:
-                            interpretation.append("融资余额远大于融券余额，投资者看多情绪强")
-                        elif margin_balance > short_balance * 3:
-                            interpretation.append("融资余额大于融券余额，投资者偏看多")
+            current_price = 0
+            date_str = datetime.now().strftime('%Y%m%d')
+            
+            # 获取股票当前价格（沪深通用）
+            start_date = (datetime.strptime(date_str, '%Y%m%d') - timedelta(days=15)).strftime('%Y%m%d')
+            end_date = date_str
+            stock_info = data_source_manager.get_stock_hist_data(symbol, start_date, end_date)
+            if stock_info is not None and not stock_info.empty:
+                current_price = float(stock_info.iloc[-1]['close'])
+            
+            # 获取融资融券明细
+            if symbol.startswith("00") or symbol.startswith("30"):
+                df = data_source_manager.get_stock_margin_detail_data_sz(date_str=date_str)
+            else:
+                df = data_source_manager.get_stock_margin_detail_data_sh(date_str=date_str)
+                if df is not None:
+                    df.rename(columns={
+                        "标的证券代码": "证券代码",
+                        "标的证券简称": "证券简称"
+                    }, inplace=True)
+
+            if df is not None and not df.empty:
+                stock_data = df[df['证券代码'] == symbol]
+                if not stock_data.empty:
+                    latest = stock_data.iloc[0]
+                    
+                    # 融资融券数据
+                    margin_balance = float(latest.get('融资余额', 0))
+                    short_volume = float(latest.get('融券余量', 0))
+                    
+                    # 将融券余量转换为金额（融券余额）
+                    short_balance = short_volume * current_price if current_price > 0 else 0
+                    
+                    # 解读融资融券数据
+                    interpretation = []
+                    if short_balance > 0:
+                        margin_short_ratio = margin_balance / short_balance
+                        if margin_short_ratio > 10:
+                            interpretation.append(f"融资余额远大于融券余额({margin_short_ratio:.1f}倍)，投资者看多情绪强")
+                        elif margin_short_ratio > 5:
+                            interpretation.append(f"融资余额大于融券余额({margin_short_ratio:.1f}倍)，投资者偏看多")
+                        elif margin_short_ratio > 2:
+                            interpretation.append(f"融资余额略大于融券余额({margin_short_ratio:.1f}倍)，多头略占优")
+                        elif margin_short_ratio > 0.5:
+                            interpretation.append(f"融资融券相对平衡(融资/融券={margin_short_ratio:.1f}倍)")
+                        elif margin_short_ratio > 0.2:
+                            interpretation.append(f"融券余额略大于融资余额({margin_short_ratio:.1f}倍)，空头略占优")
                         else:
-                            interpretation.append("融资融券相对平衡")
-                        
-                        return {
-                            "margin_balance": margin_balance,
-                            "short_balance": short_balance,
-                            "interpretation": interpretation,
-                            "date": datetime.now().strftime('%Y-%m-%d')
-                        }
-            except:
-                pass
-                
+                            interpretation.append(f"融券余额远大于融资余额({margin_short_ratio:.1f}倍)，投资者看空情绪强")
+                    else:
+                        interpretation.append("融券数据不足")
+                    
+                    return {
+                        "margin_balance": margin_balance,
+                        "short_balance": short_balance,
+                        "interpretation": interpretation,
+                        "date": datetime.now().strftime('%Y-%m-%d')
+                    }
+            
         except Exception as e:
             self.logger.error(f"获取融资融券数据失败: {e}")
         return None
     
     def _get_fear_greed_index(self):
-        """计算市场恐慌贪婪指数（基于多个指标综合计算）"""
+        """计算市场恐慌贪婪指数（基于多个指标综合计算）
+        多维度指标：
+        1. 涨跌家数比例
+        2. 涨跌停比例
+        3. 真实涨跌停比例
+        4. 涨停率（权重10%）- 上涨股票中涨停的比例
+        5. 成交量变化率
+        """
         try:
-            # 基于多个市场指标计算恐慌贪婪指数
-            # 1. 涨跌家数比例
-            # 2. 涨跌停比例
-            # 3. 成交量变化
-            
             score = 50  # 基准分数
             factors = []
             
@@ -668,30 +699,59 @@ class MarketSentimentDataFetcher:
                 suspended_count = float(data.get('停牌', 0))
                 limit_up_count = float(data.get('涨停', 0))
                 limit_down_count = float(data.get('跌停', 0))
+                real_limit_up = float(data.get('真实涨停', 0))
+                real_limit_down = float(data.get('真实跌停', 0))
                 activity_rate = data.get('活跃度', '0%')
                 stat_datetime = data.get('统计日期', 'N/A')
 
                 total_count = up_count + down_count + flat_count + suspended_count
                 
-                up_ratio = up_count / total_count
-                # 根据涨跌家数比例调整分数（权重30%）
-                score += (up_ratio - 0.5) * 60
-                factors.append(f"涨跌家数比例: {up_ratio:.1%}")
+                # 1. 涨跌家数比例（权重40%）
+                if total_count > 0:
+                    up_ratio = up_count / total_count
+                    score += (up_ratio - 0.5) * 80
+                    factors.append(f"涨跌家数比例: {up_ratio:.1%}")
+                
+                # 2. 涨跌停比例（权重30%）
+                limit_total = limit_up_count + limit_down_count
+                if limit_total > 0:
+                    limit_up_ratio = limit_up_count / limit_total
+                    score += (limit_up_ratio - 0.5) * 60
+                    factors.append(f"涨跌停比例: {limit_up_ratio:.1%}（涨停{int(limit_up_count)}家/跌停{int(limit_down_count)}家）")
+                
+                # 3. 真实涨跌停比例（权重20%）- 剔除ST股
+                real_limit_total = real_limit_up + real_limit_down
+                if real_limit_total > 0:
+                    real_limit_up_ratio = real_limit_up / real_limit_total
+                    score += (real_limit_up_ratio - 0.5) * 40
+                    factors.append(f"真实涨跌停比例: {real_limit_up_ratio:.1%}（涨停{int(real_limit_up)}家/跌停{int(real_limit_down)}家）")
+                
+                # 4. 涨停率（权重10%）- 上涨股票中涨停的比例
+                if up_count > 0:
+                    limit_up_rate = limit_up_count / up_count
+                    score += (limit_up_rate - 0.05) * 50
+                    factors.append(f"涨停率: {limit_up_rate:.2%}（涨停{int(limit_up_count)}家/上涨{int(up_count)}家）")
             
             # 确保分数在0-100之间
             score = max(0, min(100, score))
             
             # 解读恐慌贪婪指数
-            if score >= 75:
+            if score >= 80:
                 level = "极度贪婪"
                 interpretation = "市场情绪极度乐观，投资者贪婪，需警惕回调风险"
-            elif score >= 60:
+            elif score >= 65:
                 level = "贪婪"
-                interpretation = "市场情绪乐观，投资者偏向贪婪"
-            elif score >= 40:
+                interpretation = "市场情绪乐观，投资者偏向贪婪，注意追高风险"
+            elif score >= 55:
+                level = "偏乐观"
+                interpretation = "市场情绪偏乐观，短期可能继续上涨"
+            elif score >= 45:
                 level = "中性"
                 interpretation = "市场情绪中性，投资者相对理性"
-            elif score >= 25:
+            elif score >= 35:
+                level = "偏悲观"
+                interpretation = "市场情绪偏悲观，短期可能继续下跌"
+            elif score >= 20:
                 level = "恐慌"
                 interpretation = "市场情绪悲观，投资者偏向恐慌"
             else:
@@ -702,10 +762,13 @@ class MarketSentimentDataFetcher:
                 "score": f"{score:.1f}",
                 "level": level,
                 "interpretation": interpretation,
-                "factors": factors
+                "factors": factors,
+                "stat_datetime": stat_datetime if 'stat_datetime' in locals() else 'N/A'
             }
         except Exception as e:
             self.logger.error(f"计算恐慌贪婪指数失败: {e}")
+            import traceback
+            self.logger.error(f"完整错误堆栈:\n{traceback.format_exc()}")
         return None
     
     def format_sentiment_data_for_ai(self, sentiment_data):
