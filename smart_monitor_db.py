@@ -622,7 +622,6 @@ class SmartMonitorDB:
 
 if __name__ == '__main__':
     # 测试数据库
-    logging.basicConfig(level=logging.INFO)
     
     db = SmartMonitorDB('test_smart_monitor.db')
     

@@ -20,6 +20,7 @@ class DataSourceManager:
     def __init__(self):
         self.logger = log_utils.get_logger(__name__)
         self.logger.debug("初始化数据源管理器")
+        self.max_news_items = 30  # 最多获取的新闻数量
         # 客户端实例
         self.akshare_fetcher = AkshareDataFetcher()
         self.tushare_fetcher = TushareDataFetcher()
@@ -260,7 +261,7 @@ class DataSourceManager:
     def get_individual_fund_flow(self, symbol, market):
         """获取个股资金流向数据（支持akshare和tushare自动切换）"""
         # 优先使用akshare获取资金流向数据
-        self.logger.info(f"正在获取资金流向 (市场: {market})...")
+        self.logger.info(f"正在获取{symbol}的资金流向 (市场: {market})...")
         df = None
         df = self.akshare_fetcher.get_individual_fund_flow_akshare(symbol, market)
         
@@ -430,8 +431,19 @@ class DataSourceManager:
         if not date_str:
             # 获取今日
             date_str = datetime.now().strftime('%Y%m%d')
-        # 获取融资融券标的数据 （沪市）
-        margin_detail_df_sh = self.akshare_fetcher.stock_margin_detail_data_sh(date_str)
+        
+        for retry in range(5):
+            # 获取融资融券标的数据 （沪市）
+            margin_detail_df_sh = self.akshare_fetcher.stock_margin_detail_data_sh(date_str)
+            if margin_detail_df_sh is None or margin_detail_df_sh.empty:
+                self.logger.warning(f"{date_str} 沪市融资融券数据为空，尝试获取前一交易日数据")
+                date_str = (datetime.strptime(date_str, '%Y%m%d') - timedelta(days=1)).strftime('%Y%m%d')
+                time.sleep(0.5)
+            else:
+                break
+        if retry == 4:
+            self.logger.error(f"{date_str} 沪市融资融券数据为空，尝试获取5次，均失败")
+        
         return margin_detail_df_sh
     
     # 上海证券交易所-融资融券数据-融资融券明细（深市）
@@ -444,8 +456,19 @@ class DataSourceManager:
         if not date_str:
             # 获取今日
             date_str = datetime.now().strftime('%Y%m%d')
-        # 获取融资融券标的数据 （深市）
-        margin_detail_df_sz = self.akshare_fetcher.stock_margin_detail_data_sz(date_str)
+        
+        for retry in range(5):
+            # 获取融资融券标的数据 （深市）
+            margin_detail_df_sz = self.akshare_fetcher.stock_margin_detail_data_sz(date_str)
+            if margin_detail_df_sz is None or margin_detail_df_sz.empty:
+                self.logger.warning(f"{date_str} 深市融资融券数据为空，尝试获取前一交易日数据")
+                date_str = (datetime.strptime(date_str, '%Y%m%d') - timedelta(days=1)).strftime('%Y%m%d')
+                time.sleep(0.5)
+            else:
+                break
+        if retry == 4:
+            self.logger.error(f"{date_str} 深市融资融券数据为空，尝试获取5次，均失败")
+           
         return margin_detail_df_sz
     
 
@@ -454,11 +477,152 @@ class DataSourceManager:
         """
         获取股票的新闻数据（东方财富）
         :param symbol: 股票代码，例如 "688549"
-        :rtype: pandas.DataFrame
+        :rtype: list
         返回值例子：
+        [{'source': '东方财富', 
+          '关键词': '', 
+          '新闻标题': '', 
+          '新闻内容': '', 
+          '发布时间': '',
+          '文章来源': '',
+          '新闻链接': ''
+          }
+          ]
         """
-        news_items = self.akshare_fetcher.get_stock_news_from_em(symbol)
+        news_items = []
+        df = self.akshare_fetcher.get_stock_news_from_em(symbol)
+        if df is not None and not df.empty:                
+            # 处理DataFrame，提取新闻数据
+            for idx, row in df.head(self.max_news_items).iterrows():
+                item = {'source': '东方财富'}
+                
+                # 提取所有列数据
+                for col in df.columns:
+                    value = row.get(col)
+                    
+                    # 跳过空值
+                    if value is None or (isinstance(value, float) and pd.isna(value)):
+                        continue
+                    # 保存字段值
+                    try:
+                        item[col] = str(value).strip()
+                    except:
+                        item[col] = "无法解析"
+                
+                if len(item) > 1:  # 如果有数据才添加
+                    news_items.append(item)
+        
         return news_items
+
+    # 全球财经直播（同花顺）
+    def get_stock_global_news_from_ths(self):
+        """
+        同花顺-全球财经直播
+        :rtype: list
+        返回值例子：
+            [{'source': '同花顺', 
+              '标题': "", 
+              '内容': '',
+              '发布时间': '',
+              '链接': ""
+              }
+            ]
+        """
+        news_items = []
+        df = self.akshare_fetcher.get_stock_global_news_from_ths()
+        if df is not None and not df.empty:
+            # 处理DataFrame，提取新闻
+            for idx, row in df.head(self.max_news_items).iterrows():
+                item = {'source': '同花顺'}
+                
+                # 提取所有列数据
+                for col in df.columns:
+                    value = row.get(col)
+                    
+                    # 跳过空值
+                    if value is None or (isinstance(value, float) and pd.isna(value)):
+                        continue
+                    # 保存字段值
+                    try:
+                        item[col] = str(value).strip()
+                    except:
+                        item[col] = "无法解析"
+                
+                if len(item) > 1:  # 如果有数据才添加
+                    news_items.append(item)
+        return news_items
+
+    # 新浪财经
+    def get_stock_global_news_from_sina(self):
+        """
+        新浪财经
+        :rtype: list
+        返回值例子：
+            [{'source': '新浪财经', 
+              '时间': "", 
+              '内容': '',
+              }
+            ]
+        """
+        news_items = []
+        df = self.akshare_fetcher.get_stock_global_news_from_sina()
+        if df is not None and not df.empty:
+            # 处理DataFrame，提取新闻
+            for idx, row in df.head(self.max_news_items).iterrows():
+                item = {'source': '新浪财经'}
+                
+                # 提取所有列数据
+                for col in df.columns:
+                    value = row.get(col)
+                    
+                    # 跳过空值
+                    if value is None or (isinstance(value, float) and pd.isna(value)):
+                        continue
+                    # 保存字段值
+                    try:
+                        item[col] = str(value).strip()
+                    except:
+                        item[col] = "无法解析"
+                
+                if len(item) > 1:  # 如果有数据才添加
+                    news_items.append(item)
+        return news_items
+
+    # 财联社电报(不可用，访问不了)
+    def get_stock_global_news_from_cls(self):
+        """
+        财联社电报
+        :rtype: list
+        返回值例子：
+            [{'source': '财联社', 
+              '标题': "新闻标题", 
+              '链接': "链接"}
+              ]
+        """
+        news_items = []
+        df = self.akshare_fetcher.get_stock_global_news_from_cls()
+        if df is not None and not df.empty:
+            # 处理DataFrame，提取新闻
+            for idx, row in df.head(self.max_news_items).iterrows():
+                item = {'source': '财联社'}
+                
+                # 提取所有列数据
+                for col in df.columns:
+                    value = row.get(col)
+                    
+                    # 跳过空值
+                    if value is None or (isinstance(value, float) and pd.isna(value)):
+                        continue
+                    # 保存字段值
+                    try:
+                        item[col] = str(value).strip()
+                    except:
+                        item[col] = "无法解析"
+                
+                if len(item) > 1:  # 如果有数据才添加
+                    news_items.append(item)
+        return news_items
+
 
 # 全局数据源管理器实例
 data_source_manager = DataSourceManager()

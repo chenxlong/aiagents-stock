@@ -621,11 +621,6 @@ if __name__ == '__main__':
     
     load_dotenv()
     
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    
     # 使用模拟模式测试
     engine = SmartMonitorEngine(
         deepseek_api_key=os.getenv('DEEPSEEK_API_KEY'),

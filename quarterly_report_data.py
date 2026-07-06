@@ -76,25 +76,25 @@ class QuarterlyReportDataFetcher:
             income_data = self._get_income_statement(symbol)
             if income_data:
                 data["income_statement"] = income_data
-                self.logger.info(f"   ✓ 成功获取 {len(income_data.get('data', []))} 期利润表数据")
+                self.logger.info(f"✓ 成功获取 {len(income_data.get('data', []))} 期利润表数据")
             
             # 获取资产负债表
             balance_data = self._get_balance_sheet(symbol)
             if balance_data:
                 data["balance_sheet"] = balance_data
-                self.logger.info(f"   ✓ 成功获取 {len(balance_data.get('data', []))} 期资产负债表数据")
+                self.logger.info(f"✓ 成功获取 {len(balance_data.get('data', []))} 期资产负债表数据")
             
             # 获取现金流量表
             cash_flow_data = self._get_cash_flow(symbol)
             if cash_flow_data:
                 data["cash_flow"] = cash_flow_data
-                self.logger.info(f"   ✓ 成功获取 {len(cash_flow_data.get('data', []))} 期现金流量表数据")
+                self.logger.info(f"✓ 成功获取 {len(cash_flow_data.get('data', []))} 期现金流量表数据")
             
             # 获取财务指标
             indicators_data = self._get_financial_indicators(symbol)
             if indicators_data:
                 data["financial_indicators"] = indicators_data
-                self.logger.info(f"   ✓ 成功获取 {len(indicators_data.get('data', []))} 期财务指标数据")
+                self.logger.info(f"✓ 成功获取 {len(indicators_data.get('data', []))} 期财务指标数据")
             
             # 如果至少有一个成功，则标记为成功
             if income_data or balance_data or cash_flow_data or indicators_data:

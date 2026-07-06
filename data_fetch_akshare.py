@@ -31,7 +31,6 @@ class AkshareDataFetcher:
     def __init__(self):
         self.logger = log_utils.get_logger(__name__)
         self.days = 30  # 获取最近30个交易日
-        self.max_items = 30  # 最多获取的新闻数量
         self.logger.info("AkShare 免费客户端初始化成功")
 
     def _convert_to_tx_code(self, symbol):
@@ -324,7 +323,7 @@ class AkshareDataFetcher:
 
         for retry_count in range(3):
             try:
-                self.logger.info(f"[Akshare] 正在获取资金流向 (市场: {market})..." + (f" (第{retry_count+1}次)"))
+                self.logger.info(f"[Akshare] 正在获取{symbol}的资金流向 (市场: {market})..." + (f" (第{retry_count+1}次)"))
                 
                 with RequestsPatcher():
                     # 返回列信息： 日期    收盘价    涨跌幅     主力净流入-净额  主力净流入-净占比    超大单净流入-净额  超大单净流入-净占比     大单净流入-净额  大单净流入-净占比     中单净流入-净额  中单净流入-净占比     小单净流入-净额  小单净流入-净占比
@@ -527,7 +526,7 @@ class AkshareDataFetcher:
         # 1. 获取大盘情绪指标 
         try:
             market_sentiment_df =ak.stock_market_activity_legu()
-            self.logger.info(f"获取到 {symbol} 的大盘情绪指标:\n {market_sentiment_df}")                
+            self.logger.info(f"获取到的大盘情绪指标:\n {market_sentiment_df}")                
         except Exception as e:
             self.logger.error(f"获取大盘情绪指标失败: {e}")
         
@@ -654,9 +653,10 @@ class AkshareDataFetcher:
         # 1. 获取上海证券交易所-融资融券数据-融资融券明细
         try:
             margin_trading_df = ak.stock_margin_detail_sse(date=date_str)
-            self.logger.info(f"获取到 {date_str} 沪市融资融券明细:\n {margin_trading_df}")
+            self.logger.info(f"获取时间 {date_str} 沪市融资融券明细:\n {margin_trading_df}")
         except Exception as e:
-            self.logger.error(f"获取沪市融资融券明细失败: {e}")
+            self.logger.error(f"获取(沪市)融资融券明细失败，可能是空数据: {e}")
+            self.logger.error(f"完整错误堆栈:\n{traceback.format_exc()}")
         
         return margin_trading_df
     
@@ -678,26 +678,9 @@ class AkshareDataFetcher:
         # 1. 获取深圳证券交易所-融资融券数据-融资融券明细
         try:
             margin_trading_df = ak.stock_margin_detail_szse(date=date_str)
-            self.logger.info(f"获取到 {date_str} 深市融资融券明细:\n {margin_trading_df}")
-
-            if margin_trading_df is None or margin_trading_df.empty:
-                self.logger.warning(f"{date_str} 的融资融券明细为空（可能是非交易日），尝试获取前一交易日数据")
-                try:
-                    date_obj = datetime.strptime(date_str, '%Y%m%d')
-                    for i in range(1, 5):
-                        prev_date = (date_obj - timedelta(days=i)).strftime('%Y%m%d')
-                        margin_trading_df = ak.stock_margin_detail_szse(date=prev_date)
-                        if margin_trading_df is not None and not margin_trading_df.empty:
-                            self.logger.info(f"获取到 {prev_date} 深市融资融券明细（替代{date_str}）:\n {margin_trading_df}")
-                            break
-
-                        if i == 4:
-                            self.logger.error(f"获取前交易日深市融资融券明细失败，尝试次数超过4次")
-                except Exception as e2:
-                    self.logger.error(f"获取前交易日深市融资融券明细失败: {e2}")
+            self.logger.info(f"获取时间 {date_str} 深市融资融券明细:\n {margin_trading_df}")
         except Exception as e:
-            self.logger.error(f"获取深市融资融券明细失败: {e}")
-            import traceback
+            self.logger.error(f"获取(深市)融资融券明细失败: {e}")
             self.logger.error(f"完整错误堆栈:\n{traceback.format_exc()}")
         
         return margin_trading_df
@@ -747,44 +730,92 @@ class AkshareDataFetcher:
         获取股票的新闻数据（东方财富）
         :param symbol: 股票代码，例如 "688549"
         :rtype: pandas.DataFrame
+        列：关键词、新闻标题、新闻内容、发布时间、文章来源、新闻链接
         返回值例子：
-            新闻标题  新闻链接  新闻时间
-            1  https://www.sina.com.cn/stock/688549/20260630/123456.html  2026-06-30 10:00:00
+            关键词                               新闻标题                                                                                                                                                    新闻内容                 发布时间   文章来源                                                    新闻链接
+            688549  中巨芯股东远致富海完成减持计划 累计减持股份占公司总股本2.89%         7月2日，中巨芯（688549.SH）发布公告称，公司股东深圳远致富海十一号投资企业（有限合伙）（简称“远致富海”）在2026年5月15日至7月1日期间，通过集中竞价及大宗交易两种方式合计减持公司股份42697404股，占公司总股本的2.89%，本次减持计划已全部实施完毕，减持总金额达  2026-07-02 20:36:16   央广财经  http://finance.eastmoney.com/a/202607023792127980.html
+            688549                  10股获重要股东大手笔增持（附股）     木林森 1 1 1286.63 15220.83 -6.42 002242 九阳股份 1 1 1071.02 9001.48 5.06 600509 天富能源 1 1 400.30 3290.47 -0.72 002091 江苏国泰 1 1 281.00 2031.63 3.90 688549  2026-07-06 09:35:00  证券时报网  http://finance.eastmoney.com/a/202607063794499152.html
         """
-        news_items = []
-            
         # 尝试获取个股新闻（东方财富）
+        df = None
         try:
             df = ak.stock_news_em(symbol=symbol)
             self.logger.info(f"✓ 从东方财富获取到 {symbol} 的新闻，共 {len(df)} 条，数据:\n{df}")
-
-            if df is not None and not df.empty:                
-                # 处理DataFrame，提取新闻
-                for idx, row in df.head(self.max_items).iterrows():
-                    item = {'source': '东方财富'}
-                    
-                    # 提取所有列数据
-                    for col in df.columns:
-                        value = row.get(col)
-                        
-                        # 跳过空值
-                        if value is None or (isinstance(value, float) and pd.isna(value)):
-                            continue
-                        # 保存字段
-                        try:
-                            item[col] = str(value)
-                        except:
-                            item[col] = "无法解析"
-                    
-                    if len(item) > 1:  # 如果有数据才添加
-                        news_items.append(item)
-        
         except Exception as e:
             self.logger.warning(f" ⚠ 从东方财富获取失败: {e}")
+            import traceback
+            self.logger.error(f"完整错误堆栈:\n{traceback.format_exc()}")
 
-        return news_items
+        return df
+
+    # 新浪财经新闻
+    def get_stock_global_news_from_sina(self):
+        """
+        新浪财经-全球财经快讯
+        :param symbol: 股票代码，例如 "688549"
+        :rtype: pandas.DataFrame
+        列：时间、内容
+        返回值例子：
+            时间             			内容
+            2026-07-06 13:15:30         【中公教育：内外部经营环境未发生且未预计将要发生重大变化】中公教育公告，公司股票价格短期波动较大；经关注、核实，公司近期生产经营情况正常，内外部经营环境未发生且未预计将要发生重大变化，不存在应予以披露而未披露事项，公司前期披露的信息不存在需要更正、补充之处。
+        """
+        df = None
+        # 尝试获取全球财经快讯新闻（新浪财经）
+        try:
+            df = ak.stock_info_global_sina()
+            self.logger.info(f"✓ 从新浪财经获取全球财经快讯，共 {len(df)} 条，数据:\n{df}")
+        except Exception as e:
+            self.logger.error(f"从新浪财经获取全球财经快讯失败: {e}")
+            import traceback
+            self.logger.error(f"完整错误堆栈:\n{traceback.format_exc()}")
+        
+        return df
+
+    # 财联社电报（不可用）
+    def get_stock_global_news_from_cls(self):
+        """
+        财联社-全球财经快讯
+        :param symbol: 股票代码，例如 "688549"
+        :rtype: pandas.DataFrame
+         "标题", "内容", "发布日期", "发布时间" "等级"
+        """
+        df = None
+        # 尝试获取全球财经快讯新闻（财联社电报）
+        try:
+            df = ak.stock_info_global_cls()
+            self.logger.info(f"✓ 从财联社电报获取全球财经快讯，共 {len(df)} 条，数据:\n{df}")
+        except Exception as e:
+            self.logger.error(f"获取财联社电报全球财经快讯失败: {e}")
+            import traceback
+            self.logger.error(f"完整错误堆栈:\n{traceback.format_exc()}")
+        
+        return df
+
+    # 同花顺财经
+    def get_stock_global_news_from_ths(self):
+        """
+        同花顺-全球财经快讯
+        :rtype: pandas.DataFrame
+        列：标题、内容、发布时间、链接
+        返回值例子：
+            标题                                                内容                                                                                                                                                            发布时间              链接
+            沪深京三市成交额超2.5万亿元，较上日此时放量343亿元      据同花顺iFinD数据，沪深京三市成交额超2.5万亿元，较上日此时放量343亿元，预计全天成交金额约3.2万亿元。截至目前，沪市成交额11496亿元，深市成交额13340亿元，北证50成交额168亿元。  2026-07-06 13:38:16  https://news.10jqka.com.cn/20260706/c677970466.shtml
+        """
+        df = None
+        # 尝试获取全球财经快讯新闻（同花顺）
+        try:
+            df = ak.stock_info_global_ths()
+            self.logger.info(f"✓ 从同花顺获取全球财经直播，共 {len(df)} 条，数据:\n{df}")
+        except Exception as e:
+            self.logger.error(f"获取同花顺全球财经直播失败: {e}")
+            import traceback
+            self.logger.error(f"完整错误堆栈:\n{traceback.format_exc()}")
+        
+        return df
 
 
+
+# 测试代码
 if __name__ == '__main__':
     # 测试代码
     print("=" * 50)
@@ -835,9 +866,9 @@ if __name__ == '__main__':
     # time.sleep(2)
     
     # # 5. 个股资金流向
-    # print(f"\n5. 获取 {test_symbol} 的资金流向:")
-    # fund_flow = akshare_data_fetcher.get_individual_fund_flow_akshare(test_symbol, market="sh")
-    # print(f"资金流向: {fund_flow}")
+    print(f"\n5. 获取 {test_symbol} 的资金流向:")
+    fund_flow = akshare_data_fetcher.get_individual_fund_flow_akshare(test_symbol, market="sh")
+    print(f"资金流向: {fund_flow}")
 
     # time.sleep(2)
 
@@ -916,16 +947,16 @@ if __name__ == '__main__':
 
     # 17. 融资融券明细（沪市）
     data_str = "20260703"
-    # print(f"\n17. 获取 {test_symbol} 的融资融券明细（沪市）:")
-    # margin_trading_data_sh = akshare_data_fetcher.stock_margin_detail_data_sh(data_str)
-    # print(f"融资融券明细（沪市）: {margin_trading_data_sh}")
-    # time.sleep(2)
-
-    #18. 融资融券明细（深市） 空数据
-    print(f"\n18. 获取 {test_symbol} 的融资融券明细（深市）:")
-    margin_trading_data_sz = akshare_data_fetcher.stock_margin_detail_data_sz(data_str)
-    print(f"融资融券明细（深市）: {margin_trading_data_sz}")
+    print(f"\n17. 获取 {test_symbol} 的融资融券明细（沪市）:")
+    margin_trading_data_sh = akshare_data_fetcher.stock_margin_detail_data_sh(data_str)
+    print(f"融资融券明细（沪市）: {margin_trading_data_sh}")
     time.sleep(2)
+
+    # #18. 融资融券明细（深市） 空数据
+    # print(f"\n18. 获取 {test_symbol} 的融资融券明细（深市）:")
+    # margin_trading_data_sz = akshare_data_fetcher.stock_margin_detail_data_sz(data_str)
+    # print(f"融资融券明细（深市）: {margin_trading_data_sz}")
+    # time.sleep(2)
 
     # # 19. 融资融券汇总（深市）
     # print(f"\n19. 获取 {test_symbol} 的融资融券汇总（深市）:")
@@ -933,6 +964,30 @@ if __name__ == '__main__':
     # print(f"融资融券汇总（深市）: {margin_trading_data_szse}")
     # time.sleep(2)
 
+    # 20. 个股新闻(东方财富)
+    print(f"\n20. 获取 {test_symbol} 的新闻:")
+    news_data = akshare_data_fetcher.get_stock_news_from_em(test_symbol)
+    print(f"新闻: {news_data}")
+    time.sleep(2)
+
+    # 21. 全球财经快讯(新浪财经)
+    print(f"\n21. 获取全球财经快讯(新浪财经):")
+    news_data = akshare_data_fetcher.get_stock_global_news_from_sina()
+    print(f"新闻: {news_data}")
+    time.sleep(2)
+
+    # 22. 全球财经快讯(财联社)
+    print(f"\n22. 获取全球财经快讯(财联社):")
+    news_data = akshare_data_fetcher.get_stock_global_news_from_cls()
+    print(f"新闻: {news_data}")
+    time.sleep(2)
+
+    # 23. 全球财经快讯(同花顺)
+    print(f"\n23. 获取全球财经快讯(同花顺):")
+    news_data = akshare_data_fetcher.get_stock_global_news_from_ths()
+    print(f"新闻: {news_data}")
+    time.sleep(2)
+    
 
 
     print("\n" + "=" * 50)

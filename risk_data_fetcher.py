@@ -26,7 +26,7 @@ class RiskDataFetcher:
     def __init__(self):
         """初始化"""
         self.logger = log_utils.get_logger(__name__)
-        self.logger.debug("风险数据获取模块初始化")
+        self.logger.debug("问财风险数据获取模块初始化")
     
     def get_risk_data(self, symbol: str) -> Dict[str, Any]:
         """
@@ -51,35 +51,35 @@ class RiskDataFetcher:
         
         try:
             # 1. 获取限售解禁数据
-            self.logger.info("   查询限售解禁数据...")
+            self.logger.info("查询限售解禁数据...")
             lifting_ban = self._get_lifting_ban_data(symbol)
             risk_data['lifting_ban'] = lifting_ban
             if lifting_ban and lifting_ban.get('has_data'):
-                self.logger.info(f"   获取到限售解禁数据")
+                self.logger.info(f"获取到限售解禁数据")
             else:
-                self.logger.info(f"   暂无限售解禁数据")
+                self.logger.info(f"暂无限售解禁数据")
             
             time.sleep(1)  # 避免请求过快
             
             # 2. 获取大股东减持公告
-            self.logger.info("   查询大股东减持公告...")
+            self.logger.info("查询大股东减持公告...")
             reduction = self._get_shareholder_reduction_data(symbol)
             risk_data['shareholder_reduction'] = reduction
             if reduction and reduction.get('has_data'):
-                self.logger.info(f"   获取到大股东减持数据")
+                self.logger.info(f"获取到大股东减持数据")
             else:
-                self.logger.info(f"   暂无大股东减持数据")
+                self.logger.info(f"暂无大股东减持数据")
             
             time.sleep(1)  # 避免请求过快
             
             # 3. 获取近期重要事件
-            self.logger.info("   查询近期重要事件...")
+            self.logger.info("查询近期重要事件...")
             events = self._get_important_events_data(symbol)
             risk_data['important_events'] = events
             if events and events.get('has_data'):
-                self.logger.info(f"   获取到重要事件数据")
+                self.logger.info(f"获取到重要事件数据")
             else:
-                self.logger.info(f"   暂无重要事件数据")
+                self.logger.info(f"暂无重要事件数据")
             
             # 如果至少有一个数据源成功，则认为获取成功
             if (lifting_ban and lifting_ban.get('has_data')) or \
@@ -108,7 +108,7 @@ class RiskDataFetcher:
         
         try:
             # 构建问句
-            query = f"{symbol}限售解禁"
+            query = result['query']
             
             # 使用pywencai查询
             response = pywencai.get(query=query, loop=True)
@@ -172,10 +172,11 @@ class RiskDataFetcher:
         
         try:
             # 构建问句
-            query = f"{symbol}大股东减持公告"
+            query = result['query']
             
             # 使用pywencai查询
             response = pywencai.get(query=query, loop=True)
+            self.logger.debug(f"获取到的原始大股东减持公告数据响应: {response}")
             
             if response is None:
                 return result
@@ -235,10 +236,11 @@ class RiskDataFetcher:
         
         try:
             # 构建问句
-            query = f"{symbol}近期重要事件"
+            query = result['query']
             
             # 使用pywencai查询
             response = pywencai.get(query=query, loop=True)
+            self.logger.debug(f"获取到的原始近期重要事件数据响应: {response}")
             
             if response is None:
                 return result

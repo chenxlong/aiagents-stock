@@ -445,7 +445,6 @@ class SmartMonitorKline:
 
 if __name__ == '__main__':
     # 测试代码
-    logging.basicConfig(level=logging.INFO)
     
     kline = SmartMonitorKline()
     

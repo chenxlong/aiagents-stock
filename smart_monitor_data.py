@@ -799,7 +799,6 @@ class SmartMonitorDataFetcher:
 
 if __name__ == '__main__':
     # 测试代码
-    logging.basicConfig(level=logging.INFO)
     
     fetcher = SmartMonitorDataFetcher()
     

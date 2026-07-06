@@ -1504,7 +1504,7 @@ def display_stock_chart(stock_data, stock_info):
     st.subheader("📈 股价走势图")
 
     # 检查是否有成交量数据
-    has_volume = 'Volume' in stock_data.columns
+    has_volume = 'volume' in stock_data.columns
     
     # 固定使用子图布局，根据是否有成交量调整行数
     from plotly.subplots import make_subplots
@@ -1524,10 +1524,10 @@ def display_stock_chart(stock_data, stock_info):
     # 添加蜡烛图到第一行（中国风格：上涨红色，下跌绿色）
     fig.add_trace(go.Candlestick(
         x=stock_data.index,
-        open=stock_data['Open'],
-        high=stock_data['High'],
-        low=stock_data['Low'],
-        close=stock_data['Close'],
+        open=stock_data['open'],
+        high=stock_data['high'],
+        low=stock_data['low'],
+        close=stock_data['close'],
         name="K线",
         increasing_line_color='#ef4444',
         increasing_fillcolor='#ef4444',
@@ -1579,10 +1579,10 @@ def display_stock_chart(stock_data, stock_info):
 
     # 添加成交量到第二行（如果有）- 中国风格：上涨红色，下跌绿色
     if has_volume:
-        volume_colors = ['#ef4444' if stock_data['Close'].iloc[i] >= stock_data['Open'].iloc[i] else '#22c55e' for i in range(len(stock_data))]
+        volume_colors = ['#ef4444' if stock_data['close'].iloc[i] >= stock_data['open'].iloc[i] else '#22c55e' for i in range(len(stock_data))]
         fig.add_trace(go.Bar(
             x=stock_data.index,
-            y=stock_data['Volume'],
+            y=stock_data['volume'],
             name="成交量",
             marker_color=volume_colors
         ), row=2, col=1)

@@ -13,10 +13,6 @@ import os
 from dotenv import load_dotenv
 from sector_strategy_db import SectorStrategyDatabase
 
-# 应用请求补丁（请求头/超时）
-from utils.akshare_helper import patch_requests
-patch_requests()
-
 # 加载环境变量
 load_dotenv()
 

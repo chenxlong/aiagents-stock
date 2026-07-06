@@ -13,10 +13,6 @@ import io
 from data_source_manager import data_source_manager
 import log_utils
 
-# 应用请求补丁（请求头/超时）
-from utils.akshare_helper import patch_requests
-patch_requests()
-
 warnings.filterwarnings('ignore')
 
 # 设置标准输出编码为UTF-8（仅在命令行环境，避免streamlit冲突）
@@ -491,7 +487,10 @@ class MarketSentimentDataFetcher:
             change_pct = 0
             if sh_index_df is not None and not sh_index_df.empty:
                 # 最新数据的涨跌幅
-                change_pct = float(sh_index_df.iloc[-1]['pctChg'])
+                if 'pctChg' in sh_index_df.columns:
+                    change_pct = float(sh_index_df.iloc[-1]['pctChg'])
+                elif 'pct_chg' in sh_index_df.columns:
+                    change_pct = float(sh_index_df.iloc[-1]['pct_chg'])
                     
             # 获取涨跌家数
             try:

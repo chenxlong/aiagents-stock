@@ -392,9 +392,9 @@ class StockDataFetcher:
                 })
                 
                 # 确保date列为datetime类型
-                if 'date' not in df.columns and df.index.name == 'date':
-                    df.index.name = 'date'
-                elif 'date' in df.columns:
+                # if 'date' not in df.columns and df.index.name == 'date':
+                #     df.index.name = 'date'
+                if 'date' in df.columns:
                     df['date'] = pd.to_datetime(df['date'])
                     df.set_index('date', inplace=True)
                 
@@ -556,25 +556,25 @@ class StockDataFetcher:
         }
         
         try:
-            # 1. 获取资产负债表
+            # 1. 获取资产负债表 同花顺数据
             balance_sheet = self.data_source_manager.get_stock_financial_debt(symbol=symbol, indicator="按报告期")
             self.logger.info(f"获取到 {symbol} 的资产负债表:\n {balance_sheet}")
             if balance_sheet is not None and not balance_sheet.empty:
                 financial_data["balance_sheet"] = balance_sheet.head(8).to_dict('records')
 
-            # 2. 获取利润表
+            # 2. 获取利润表 同花顺数据
             income_statement = self.data_source_manager.get_stock_financial_benefit(symbol=symbol, indicator="按报告期")
             self.logger.info(f"获取到 {symbol} 的利润表:\n {income_statement}")
             if income_statement is not None and not income_statement.empty:
                 financial_data["income_statement"] = income_statement.head(8).to_dict('records')
             
-            # 3. 获取现金流量表
+            # 3. 获取现金流量表 同花顺数据
             cash_flow = self.data_source_manager.get_stock_financial_cash(symbol=symbol, indicator="按报告期")
             self.logger.info(f"获取到 {symbol} 的现金流量表:\n {cash_flow}")
             if cash_flow is not None and not cash_flow.empty:
                 financial_data["cash_flow"] = cash_flow.head(8).to_dict('records')
             
-            # 4. 获取主要财务指标 todo（这个和季度报告获取方式一样，要不要用同花顺的财务指标？？ ）
+            # 4. 获取主要财务指标 todo（这个和季度报告获取方式一样，要不要用同花顺的财务指标stock_financial_abstract_ths？？ ）
             financial_abstract = self.data_source_manager.get_stock_financial_main(symbol=symbol)
             self.logger.info(f"获取到 {symbol} 的主要财务指标:\n {financial_abstract}")
             if financial_abstract is not None and not financial_abstract.empty:

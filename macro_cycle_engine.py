@@ -20,8 +20,6 @@ class MacroCycleEngine:
         self.agents = MacroCycleAgents(model=self.model)
         self.data_fetcher = MacroCycleDataFetcher()
         self.logger = log_utils.get_logger(__name__)
-        if not self.logger.handlers:
-            logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
         print(f"[宏观周期引擎] 初始化完成 (模型: {self.model})")
 
     def run_full_analysis(self, progress_callback=None) -> Dict[str, Any]:

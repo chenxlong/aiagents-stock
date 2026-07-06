@@ -112,6 +112,10 @@ class BaostockDataFetcher:
             
         Returns:
             DataFrame: 包含日期、开盘、收盘、最高、最低、成交量等列
+            列名: date, code, open, high, low, close, preclose, volume, amount, adjustflag, turn, tradestatus, pct_chg, pe_ttm, ps_ttm, pcf_ttm, pb_mrq, is_st
+        返回值例子:
+        date       code   open   high    low  close  preclose       volume        amount adjustflag    turn tradestatus  pct_chg    pe_ttm    ps_ttm    pcf_ttm    pb_mrq is_st
+        2026-06-22  sz.000001  10.52  10.67  10.42  10.65     10.52  126531672.0  1.334768e+09          2  0.6520           1   1.2357  4.799652  1.553816  50.005572  0.445336     0
         """
         try:
             self.logger.info(f"[Baostock] 正在获取 {symbol} 的历史数据...")
@@ -266,7 +270,7 @@ class BaostockDataFetcher:
             df_industry = pd.DataFrame(data_list_industry, columns=rs_industry.fields)
             self.logger.info(f"[Baostock] 获取到行业信息:\n {df_industry} ")
 
-            # 查询季频估值指标盈利能力（股票股本信息）
+            # 查询季频估值指标盈利能力（股票股本信息） todo 访问太频繁，会报错（应该登陆一次，访问一次？）
             start_year = time.strftime("%Y", time.localtime())
             result_profit_df = self.get_stock_equity_baostock(ts_code, start_year=start_year)
             self.logger.info(f"[Baostock] 获取到季频估值指标盈利能力:\n {result_profit_df} ")

@@ -282,11 +282,6 @@ class MacroAnalysisDataFetcher:
 
     def __init__(self) -> None:
         self.logger = log_utils.get_logger(__name__)
-        if not self.logger.handlers:
-            logging.basicConfig(
-                level=logging.INFO,
-                format="[%(asctime)s] %(levelname)s %(name)s: %(message)s",
-            )
 
     def fetch_all_data(self) -> Dict[str, Any]:
         """获取完整宏观分析所需数据"""

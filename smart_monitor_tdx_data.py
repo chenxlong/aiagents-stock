@@ -413,7 +413,6 @@ class SmartMonitorTDXDataFetcher:
 
 if __name__ == '__main__':
     # 测试代码
-    logging.basicConfig(level=logging.INFO)
     
     # 使用默认地址测试
     fetcher = SmartMonitorTDXDataFetcher(base_url="http://192.168.1.222:8181")

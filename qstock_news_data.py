@@ -98,47 +98,26 @@ class QStockNewsDataFetcher:
         try:
             self.logger.info(f"获取新闻...")
             news_items = []
+            # 方法1: 东方财富新闻
             news_items = data_source_manager.get_stock_news(symbol)
 
-            # 方法3: todo 尝试获取财联社电报
+            # 方法2: 全球财经直播
             if not news_items or len(news_items) < 5:
-                try:
-                    # stock_info_global_sina - 新浪财经新闻
-                    df = ak.stock_info_global_sina()
+                ths_news_items = data_source_manager.get_stock_global_news_from_ths()
+                if ths_news_items is not None and not ths_news_items.empty:
+                    news_items.extend(ths_news_items)
 
-                    #  财联社电报
-                    df = ak.stock_info_global_cls()
+
+            # 方法3: 尝试获取新浪财经新闻
+            if not news_items or len(news_items) < 15:
+                    #  新浪财经
+                    sina_news_items = data_source_manager.get_stock_global_news_from_sina()
                     
-                    if df is not None and not df.empty:
-                        # 筛选包含股票代码或名称的新闻
-                        df_filtered = df[
-                            df['内容'].str.contains(symbol, na=False) |
-                            df['标题'].str.contains(symbol, na=False)
-                        ]
-                        
-                        if not df_filtered.empty:
-                            self.logger.info(f"   ✓ 从财联社获取到 {len(df_filtered)} 条相关新闻")
-                            
-                            for idx, row in df_filtered.head(self.max_items - len(news_items)).iterrows():
-                                item = {'source': '财联社'}
-                                
-                                for col in df_filtered.columns:
-                                    value = row.get(col)
-                                    if value is None or (isinstance(value, float) and pd.isna(value)):
-                                        continue
-                                    try:
-                                        item[col] = str(value)
-                                    except:
-                                        item[col] = "无法解析"
-                                
-                                if len(item) > 1:
-                                    news_items.append(item)
-                
-                except Exception as e:
-                    self.logger.warning(f"   ⚠ 从财联社获取失败: {e}")
+                    if sina_news_items is not None and not sina_news_items.empty:
+                        news_items.extend(sina_news_items)
             
             if not news_items:
-                self.logger.error(f"   未找到股票 {symbol} 的新闻")
+                self.logger.error(f"未找到股票 {symbol} 的新闻")
                 return None
             
             # 限制数量
@@ -152,7 +131,7 @@ class QStockNewsDataFetcher:
             }
             
         except Exception as e:
-            self.logger.error(f"   获取新闻数据异常: {e}")
+            self.logger.error(f"获取新闻数据异常: {e}")
             import traceback
             traceback.print_exc()
             return None
