@@ -77,7 +77,7 @@ class QStockNewsDataFetcher:
             
             if news_data:
                 data["news_data"] = news_data
-                self.logger.info(f"   ✓ 成功获取 {len(news_data.get('items', []))} 条新闻")
+                self.logger.info(f"✓ 成功获取 {len(news_data.get('items', []))} 条新闻")
                 data["data_success"] = True
                 self.logger.info("✅ 新闻数据获取完成")
             else:
@@ -104,7 +104,7 @@ class QStockNewsDataFetcher:
             # 方法2: 全球财经直播
             if not news_items or len(news_items) < 5:
                 ths_news_items = data_source_manager.get_stock_global_news_from_ths()
-                if ths_news_items is not None and not ths_news_items.empty:
+                if ths_news_items is not None and len(ths_news_items) > 0:
                     news_items.extend(ths_news_items)
 
 
@@ -113,10 +113,10 @@ class QStockNewsDataFetcher:
                     #  新浪财经
                     sina_news_items = data_source_manager.get_stock_global_news_from_sina()
                     
-                    if sina_news_items is not None and not sina_news_items.empty:
+                    if sina_news_items is not None and len(sina_news_items) > 0:
                         news_items.extend(sina_news_items)
             
-            if not news_items:
+            if not news_items and len(news_items) == 0:
                 self.logger.error(f"未找到股票 {symbol} 的新闻")
                 return None
             

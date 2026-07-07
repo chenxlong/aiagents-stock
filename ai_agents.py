@@ -39,11 +39,11 @@ class StockAnalysisAgents:
             income_count = quarterly_data.get('income_statement', {}).get('periods', 0) if quarterly_data.get('income_statement') else 0
             balance_count = quarterly_data.get('balance_sheet', {}).get('periods', 0) if quarterly_data.get('balance_sheet') else 0
             cash_flow_count = quarterly_data.get('cash_flow', {}).get('periods', 0) if quarterly_data.get('cash_flow') else 0
-            self.logger.info(f"   ✓ 已获取季报数据：利润表{income_count}期，资产负债表{balance_count}期，现金流量表{cash_flow_count}期")
+            self.logger.info(f"✓ 已获取季报数据：利润表{income_count}期，资产负债表{balance_count}期，现金流量表{cash_flow_count}期")
         else:
-            self.logger.warning("   ⚠ 未获取到季报数据，将基于基本财务数据分析")
-        
-        time.sleep(1)
+            self.logger.warning("⚠ 未获取到季报数据，将基于基本财务数据分析")
+        # todo 删除sleep
+        # time.sleep(1)
         
         analysis = self.deepseek_client.fundamental_analysis(stock_info, financial_data, quarterly_data)
         self.logger.info(f"基本面分析结果:\n {analysis}")

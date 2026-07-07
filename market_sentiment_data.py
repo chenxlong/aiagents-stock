@@ -483,7 +483,7 @@ class MarketSentimentDataFetcher:
             current_date = datetime.now().strftime("%Y-%m-%d")
             # 计算15天前的日期
             start_date = (datetime.strptime(current_date, "%Y-%m-%d") - timedelta(days=15)).strftime("%Y-%m-%d")
-            sh_index_df = data_source_manager.get_stock_hist_data(symbol="000001", start_date=start_date, end_date=current_date)
+            sh_index_df = data_source_manager.get_stock_market_index_history_data("sh","000001", start_date=start_date, end_date=current_date)
             change_pct = 0
             if sh_index_df is not None and not sh_index_df.empty:
                 # 最新数据的涨跌幅

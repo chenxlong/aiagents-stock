@@ -574,8 +574,8 @@ class StockDataFetcher:
             if cash_flow is not None and not cash_flow.empty:
                 financial_data["cash_flow"] = cash_flow.head(8).to_dict('records')
             
-            # 4. 获取主要财务指标 todo（这个和季度报告获取方式一样，要不要用同花顺的财务指标stock_financial_abstract_ths？？ ）
-            financial_abstract = self.data_source_manager.get_stock_financial_main(symbol=symbol)
+            # 4. 获取主要财务指标 todo（这个和季度报告获取方式一样，要不要用同花顺的财务指标 stock_financial_abstract_ths ？？ ）
+            financial_abstract = self.data_source_manager.get_stock_financial_main_ths(symbol=symbol)
             self.logger.info(f"获取到 {symbol} 的主要财务指标:\n {financial_abstract}")
             if financial_abstract is not None and not financial_abstract.empty:
                 # 提取关键财务指标

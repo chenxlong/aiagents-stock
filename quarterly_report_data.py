@@ -238,7 +238,7 @@ class QuarterlyReportDataFetcher:
     def _get_financial_indicators(self, symbol):
         """获取财务指标数据"""
         try:
-            df = self.data_source_manager.get_stock_financial_main(symbol=symbol)
+            df = self.data_source_manager.get_stock_financial_main_sina(symbol=symbol)
             self.logger.debug(f"获取到财务指标数据:\n {df}")
             
             if df is None or df.empty:
@@ -305,10 +305,9 @@ class QuarterlyReportDataFetcher:
         
         text_parts = []
         text_parts.append(f"""
-【季度财务报告数据 - akshare数据源】
+【季度财务报告数据】
 股票代码：{data.get('symbol', 'N/A')}
 数据期数：最近{self.periods}期季报
-
 """)
         
         # 利润表数据
@@ -321,7 +320,7 @@ class QuarterlyReportDataFetcher:
 """)
             
             # 提取关键指标
-            key_fields = ['报告期', '营业总收入', '营业收入', '营业总成本', '营业利润', 
+            key_fields = ['报告期', '报告日', '营业总收入', '营业收入', '营业总成本', '营业利润', 
                          '利润总额', '净利润', '归属于母公司所有者的净利润', 
                          '基本每股收益', '稀释每股收益']
             
@@ -348,9 +347,9 @@ class QuarterlyReportDataFetcher:
 """)
             
             # 提取关键指标
-            key_fields = ['报告期', '资产总计', '流动资产合计', '非流动资产合计',
+            key_fields = ['报告期', '报告日', '资产总计', '流动资产合计', '非流动资产合计',
                          '负债合计', '流动负债合计', '非流动负债合计',
-                         '所有者权益合计', '归属于母公司股东权益合计']
+                         '所有者权益(或股东权益)合计', '归属于母公司股东权益合计']
             
             for idx, item in enumerate(balance_data.get('data', []), 1):
                 text_parts.append(f"\n第 {idx} 期:")
@@ -369,7 +368,7 @@ class QuarterlyReportDataFetcher:
 """)
             
             # 提取关键指标
-            key_fields = ['报告期', '经营活动产生的现金流量净额', 
+            key_fields = ['报告期', '报告日', '经营活动产生的现金流量净额', 
                          '投资活动产生的现金流量净额', '筹资活动产生的现金流量净额',
                          '现金及现金等价物净增加额', '期末现金及现金等价物余额']
             
@@ -391,7 +390,7 @@ class QuarterlyReportDataFetcher:
             
             # 提取关键指标
             key_fields = [
-                '报告期',
+                '报告期', '报告日',
                 '归母净利润', '营业总收入', '净利润','扣非净利润','商誉', '经营现金流量净额',
                 '基本每股收益', '每股净资产', '每股现金流', '每股经营现金流',
                 '净资产收益率(ROE)', '总资产报酬率(ROA)', '毛利率','销售净利率',

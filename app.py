@@ -1224,7 +1224,7 @@ def run_stock_analysis(symbol, period):
         enable_fundamental = st.session_state.get('enable_fundamental', True)
         quarterly_data = None
         if enable_fundamental and fetcher._is_chinese_stock(symbol):
-            status_text.text("📊 正在获取季报数据（akshare数据源）...")
+            status_text.text("📊 正在获取季报数据...")
             try:
                 from quarterly_report_data import QuarterlyReportDataFetcher
                 quarterly_fetcher = QuarterlyReportDataFetcher()
@@ -1252,7 +1252,7 @@ def run_stock_analysis(symbol, period):
         # 3. 获取资金流向数据（仅在选择了资金面分析师时，使用akshare数据源）
         fund_flow_data = None
         if enable_fund_flow and fetcher._is_chinese_stock(symbol):
-            status_text.text("💰 正在获取资金流向数据（akshare数据源）...")
+            status_text.text("💰 正在获取资金流向数据...")
             try:
                 from fund_flow_akshare import FundFlowAkshareDataFetcher
                 fund_flow_fetcher = FundFlowAkshareDataFetcher()

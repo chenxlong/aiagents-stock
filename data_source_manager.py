@@ -4,6 +4,7 @@
 """
 
 import os
+import akshare
 import pandas as pd
 from datetime import datetime, timedelta
 import log_utils
@@ -12,7 +13,7 @@ from data_fetch_akshare import AkshareDataFetcher
 from data_fetch_tushare import TushareDataFetcher
 from data_fetch_baostock import BaostockDataFetcher
 from data_fetch_tickflow import TickFlowDataFetcher
-
+import time
 
 class DataSourceManager:
     """数据源管理器 - 实现akshare与tushare自动切换"""
@@ -333,7 +334,7 @@ class DataSourceManager:
             return None
 
     # 获取主要财务指标数据
-    def get_stock_financial_main(self, symbol):
+    def get_stock_financial_main_sina(self, symbol):
         """
         获取个股主要财务指标数据
         :param symbol: 股票代码
@@ -342,10 +343,20 @@ class DataSourceManager:
         financial_abstract = self.akshare_fetcher.stock_financial_abstract_sina(symbol)               
         return financial_abstract
 
-    # 获取大盘情绪指标
+    # 获取主要财务指标数据
+    def get_stock_financial_main_ths(self, symbol):
+        """
+        获取个股主要财务指标数据
+        :param symbol: 股票代码
+        """
+        financial_abstract = None
+        financial_abstract = self.akshare_fetcher.stock_financial_abstract_ths(symbol)               
+        return financial_abstract
+
+    # 实时获取大盘情绪指标
     def get_stock_market_activity(self):
         """
-        获取大盘情绪指标
+        实时获取大盘情绪指标
         :rtype: pandas.DataFrame
                  item                value
         0         上涨               3527.0
@@ -623,6 +634,59 @@ class DataSourceManager:
                     news_items.append(item)
         return news_items
 
+    def get_stock_market_index_history_data(self, market_index_prefix, symbol, start_date=None, end_date=None, adjust='qfq'):
+        """
+        获取股票市场指数历史数据（优先baostock，失败时使用akshare，失败时使用tushare）
+        
+        Args:
+            symbol: 股票市场指数代码（6位数字）
+            start_date: 开始日期（格式：'20240101'或'2024-01-01'）
+            end_date: 结束日期
+            adjust: 复权类型（'qfq'前复权, 'hfq'后复权, ''不复权）
+            
+        Returns:
+            DataFrame: 包含日期、开盘、收盘、最高、最低、成交量等列
+        """
+        self.logger.debug(f"开始获取股票市场指数 {market_index_prefix} {symbol} 的历史数据")
+        # 标准化日期格式
+        if start_date:
+            start_date = start_date.replace('-', '')
+        if end_date:
+            end_date = end_date.replace('-', '')
+        else:
+            end_date = datetime.now().strftime('%Y%m%d')
+
+        # 历史数据格式
+        # history_data = pd.DataFrame(columns=['date', 'open', 'close', 'high', 'low', 'volume', 'amount', 'pre_close', 'change', 'pct_chg'])
+        
+        # 数据源4，尝试baostock
+        with BaostockDataFetcher() as client:
+            code = f"{market_index_prefix}.{symbol}"
+            df = client.get_stock_history_data_baostock(code, start_date, end_date, adjust)
+            if df is not None:
+                return df
+        
+        # 数据源3，尝试tickflow
+        tf_code = f"{market_index_prefix}.{symbol.upper()}"
+        df = self.tickflow_fetcher.get_stock_history_data(tf_code, start_date, end_date, adjust)
+        if df is not None:
+            return df
+
+        # 数据源1，优先使用akshare（带重试机制）
+        akshare_code = f"{market_index_prefix}{symbol}"
+        df = self.akshare_fetcher.get_stock_history_data_akshare(akshare_code, start_date, end_date, adjust)
+        if df is not None:
+            return df
+        
+        # 数据源2，尝试tushare
+        tushare_code = f"{market_index_prefix}.{symbol.upper()}"
+        df = self.tushare_fetcher.get_stock_history_data_tushare(tushare_code, start_date, end_date, adjust)
+        if df is not None:
+            return df
+        
+        # 两个数据源都失败
+        self.logger.error("❌ 获取股票历史数据，所有数据源均获取失败")
+        return None
 
 # 全局数据源管理器实例
 data_source_manager = DataSourceManager()

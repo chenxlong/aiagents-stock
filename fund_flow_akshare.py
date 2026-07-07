@@ -84,7 +84,7 @@ class FundFlowAkshareDataFetcher:
                 data["data_success"] = True
                 self.logger.info("[完成] 资金流向数据获取完成")
             else:
-                self.logger.warning("[警告] 未能获取到资金流向数据")
+                self.logger.error("[ERROR] 未能获取到资金流向数据")
                 
         except Exception as e:
             self.logger.error(f"[ERROR] 获取资金流向数据失败: {e}")

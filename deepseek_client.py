@@ -56,6 +56,14 @@ class DeepSeekClient:
     
     def technical_analysis(self, stock_info: Dict, stock_data: Any, indicators: Dict) -> str:
         """技术面分析"""
+        # 构建股票数据部分
+        stock_data_section_csv = ""
+        if stock_data is not None and len(stock_data) > 0:
+            # 取最近60日，减少token消耗
+            df_slice = stock_data.tail(60)
+            # 转CSV文本，不带索引
+            stock_data_section_csv = df_slice.to_csv(index=False)
+
         prompt = f"""
 你是一名资深的技术分析师。请基于以下股票数据进行专业的技术面分析：
 
@@ -78,7 +86,11 @@ class DeepSeekClient:
 - 布林带下轨：{indicators.get('bb_lower', 'N/A')}
 - K值：{indicators.get('k_value', 'N/A')}
 - D值：{indicators.get('d_value', 'N/A')}
+- J值：{indicators.get('j_value', 'N/A')}
 - 量比：{indicators.get('volume_ratio', 'N/A')}
+
+股票日线历史数据(CSV格式)：
+{stock_data_section_csv}
 
 请从以下角度进行分析：
 1. 趋势分析（均线系统、价格走势）
@@ -99,6 +111,7 @@ class DeepSeekClient:
         
         return self.call_api(messages)
     
+    
     def fundamental_analysis(self, stock_info: Dict, financial_data: Dict = None, quarterly_data: Dict = None) -> str:
         """基本面分析"""
         
@@ -110,8 +123,8 @@ class DeepSeekClient:
                 financial_section = f"""
 详细财务指标：
 【盈利能力】
-- 净资产收益率(ROE)：{ratios.get('净资产收益率ROE', ratios.get('ROE', 'N/A'))}
-- 总资产收益率(ROA)：{ratios.get('总资产收益率ROA', ratios.get('ROA', 'N/A'))}
+- 净资产收益率(ROE)：{ratios.get('净资产收益率(ROE)', ratios.get('ROE', 'N/A'))}
+- 总资产收益率(ROA)：{ratios.get('总资产报酬率(ROA)', ratios.get('ROA', 'N/A'))}
 - 销售毛利率：{ratios.get('销售毛利率', ratios.get('毛利率', 'N/A'))}
 - 销售净利率：{ratios.get('销售净利率', ratios.get('净利率', 'N/A'))}
 
@@ -138,7 +151,7 @@ class DeepSeekClient:
             
             # 添加报告期信息
             if ratios.get('报告期'):
-                financial_section = f"\n财务数据报告期：{ratios.get('报告期')}\n" + financial_section
+                financial_section = f"\n财务数据报告期：{ratios.get('报告期')}" + financial_section
         
         # 构建季报数据部分
         quarterly_section = ""
