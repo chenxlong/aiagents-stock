@@ -350,61 +350,47 @@ class RiskDataFetcher:
             # 1. 限售解禁数据
             lifting_ban = risk_data.get('lifting_ban')
             if lifting_ban and lifting_ban.get('has_data') and lifting_ban.get('data') is not None:
-                formatted_text.append("=" * 80)
-                formatted_text.append("【限售解禁数据】")
-                formatted_text.append("=" * 80)
-                formatted_text.append(f"查询语句: {lifting_ban.get('query', '')}")
-                formatted_text.append("")
-                
-                # 直接将DataFrame转换为字符串（最多50行）
                 df = lifting_ban.get('data')
-                try:
-                    df_str = df.head(50).to_string(index=False, max_rows=50, max_cols=20)
-                    formatted_text.append(f"共 {len(df)} 条记录，显示前50条：")
-                    formatted_text.append(df_str)
-                except Exception as e:
-                    formatted_text.append(f"数据转换失败: {str(e)}")
-                formatted_text.append("")
-        
+                df_csv = df.head(50).to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+                         
+                formatted_text.append(f"""
+========================================
+【限售解禁数据】
+查询语句: {lifting_ban.get('query', '')}
+共 {len(df)} 条记录（CSV格式），显示前50条：
+{df_csv}
+""")
+
             # 2. 大股东减持数据
             reduction = risk_data.get('shareholder_reduction')
             if reduction and reduction.get('has_data') and reduction.get('data') is not None:
-                formatted_text.append("=" * 80)
-                formatted_text.append("【大股东减持数据】")
-                formatted_text.append("=" * 80)
-                formatted_text.append(f"查询语句: {reduction.get('query', '')}")
-                formatted_text.append("")
-                
-                # 直接将DataFrame转换为字符串（最多50行）
                 df = reduction.get('data')
-                try:
-                    df_str = df.head(50).to_string(index=False, max_rows=50, max_cols=20)
-                    formatted_text.append(f"共 {len(df)} 条记录，显示前50条：")
-                    formatted_text.append(df_str)
-                except Exception as e:
-                    formatted_text.append(f"数据转换失败: {str(e)}")
-                formatted_text.append("")
-        
+                df_csv = df.head(50).to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+                
+                formatted_text.append(f"""
+========================================
+【大股东减持数据】
+查询语句: {reduction.get('query', '')}
+共 {len(df)} 条记录（CSV格式），显示前50条：
+{df_csv}
+""")
+
             # 3. 重要事件数据
             events = risk_data.get('important_events')
             if events and events.get('has_data') and events.get('data') is not None:
-                formatted_text.append("=" * 80)
-                formatted_text.append("【重要事件数据】")
-                formatted_text.append("=" * 80)
-                formatted_text.append(f"查询语句: {events.get('query', '')}")
-                formatted_text.append("")
-                
-                # 直接将DataFrame转换为字符串（最多50行）
                 df = events.get('data')
-                try:
-                    df_str = df.head(50).to_string(index=False, max_rows=50, max_cols=20)
-                    formatted_text.append(f"共 {len(df)} 条记录，显示前50条：")
-                    formatted_text.append(df_str)
-                except Exception as e:
-                    formatted_text.append(f"数据转换失败: {str(e)}")
-                formatted_text.append("")
-            
-            return "\n".join(formatted_text) if formatted_text else "暂无风险数据"
+                df_csv = df.head(50).to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+
+                formatted_text.append(f"""
+========================================
+【重要事件数据】
+查询语句: {events.get('query', '')}
+共 {len(df)} 条记录（CSV格式），显示前50条：
+{df_csv}
+""")
+            result_txt = "\n".join(formatted_text) if formatted_text else "暂无风险数据"
+            self.logger.debug(f"格式化后，AI分析使用的风险数据:\n{result_txt}")
+            return result_txt
             
         except Exception as e:
             self.logger.error(f"格式化风险数据时出错: {str(e)}")
@@ -458,6 +444,8 @@ class RiskDataFetcher:
 
 # 测试代码
 if __name__ == "__main__":
+    log_utils.setup_root_logger()
+    
     fetcher = RiskDataFetcher()
     
     # 测试获取风险数据

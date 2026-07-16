@@ -3,6 +3,7 @@ import json
 from typing import Dict, List, Any, Optional
 import config
 import log_utils
+import utils.common as utils_common
 
 class DeepSeekClient:
     """DeepSeek API客户端"""
@@ -62,7 +63,7 @@ class DeepSeekClient:
             # 取最近60日，减少token消耗
             df_slice = stock_data.tail(60)
             # 转CSV文本，不带索引
-            stock_data_section_csv = df_slice.to_csv(index=False)
+            stock_data_section_csv = df_slice.to_csv(index=True).replace('\r\n', '\n')
 
         prompt = f"""
 你是一名资深的技术分析师。请基于以下股票数据进行专业的技术面分析：
@@ -101,9 +102,13 @@ class DeepSeekClient:
 6. 短期、中期、长期技术判断
 7. 关键技术位分析
 
+**分析要求：**
+- 如果缺少必要的数据，可以直接指出，不需要假设分析
+
 请给出专业、详细的技术分析报告，包含风险提示。
 """
-        self.logger.info(f"技术面分析提示:\n {prompt}")
+        self.logger.info(f"技术面分析提示:\n{prompt}")
+        utils_common.write_file(prompt, "logs/prompt/technical_analysis_prompt.txt")
         messages = [
             {"role": "system", "content": "你是一名经验丰富的股票技术分析师，具有深厚的技术分析功底。"},
             {"role": "user", "content": prompt}
@@ -115,56 +120,17 @@ class DeepSeekClient:
     def fundamental_analysis(self, stock_info: Dict, financial_data: Dict = None, quarterly_data: Dict = None) -> str:
         """基本面分析"""
         
-        # 构建财务数据部分
-        financial_section = ""
-        if financial_data and not financial_data.get('error'):
-            ratios = financial_data.get('financial_ratios', {})
-            if ratios:
-                financial_section = f"""
-详细财务指标：
-【盈利能力】
-- 净资产收益率(ROE)：{ratios.get('净资产收益率(ROE)', ratios.get('ROE', 'N/A'))}
-- 总资产收益率(ROA)：{ratios.get('总资产报酬率(ROA)', ratios.get('ROA', 'N/A'))}
-- 销售毛利率：{ratios.get('销售毛利率', ratios.get('毛利率', 'N/A'))}
-- 销售净利率：{ratios.get('销售净利率', ratios.get('净利率', 'N/A'))}
-
-【偿债能力】
-- 资产负债率：{ratios.get('资产负债率', 'N/A')}
-- 流动比率：{ratios.get('流动比率', 'N/A')}
-- 速动比率：{ratios.get('速动比率', 'N/A')}
-
-【运营能力】
-- 存货周转率：{ratios.get('存货周转率', 'N/A')}
-- 应收账款周转率：{ratios.get('应收账款周转率', 'N/A')}
-- 总资产周转率：{ratios.get('总资产周转率', 'N/A')}
-
-【成长能力】
-- 营业收入同比增长：{ratios.get('营业收入同比增长', ratios.get('收入增长', 'N/A'))}
-- 净利润同比增长：{ratios.get('净利润同比增长', ratios.get('盈利增长', 'N/A'))}
-
-【每股指标】
-- 每股收益(EPS)：{ratios.get('EPS', 'N/A')}
-- 每股账面价值：{ratios.get('每股账面价值', 'N/A')}
-- 股息率：{ratios.get('股息率', stock_info.get('dividend_yield', 'N/A'))}
-- 派息率：{ratios.get('派息率', 'N/A')}
-"""
-            
-            # 添加报告期信息
-            if ratios.get('报告期'):
-                financial_section = f"\n财务数据报告期：{ratios.get('报告期')}" + financial_section
-        
-        # 构建季报数据部分
+        # 构建季报和财务数据部分
         quarterly_section = ""
         if quarterly_data and quarterly_data.get('data_success'):
             # 使用格式化的季报数据
             from quarterly_report_data import QuarterlyReportDataFetcher
             fetcher = QuarterlyReportDataFetcher()
+            # 【最近8期季报详细数据】
             quarterly_section = f"""
-
-【最近8期季报详细数据】
 {fetcher.format_quarterly_reports_for_ai(quarterly_data)}
 
-以上是通过akshare获取的最近8期季度财务报告，请重点基于这些数据进行趋势分析。
+以上是获取的最近8期季度财务报告，请重点基于这些数据进行趋势分析。
 """
         
         prompt = f"""
@@ -185,7 +151,6 @@ class DeepSeekClient:
 - Beta系数：{stock_info.get('beta', 'N/A')}
 - 52周最高：{stock_info.get('52_week_high', 'N/A')}
 - 52周最低：{stock_info.get('52_week_low', 'N/A')}
-{financial_section}
 {quarterly_section}
 
 请从以下维度进行专业、深入的分析：
@@ -237,6 +202,7 @@ class DeepSeekClient:
    - 适合的投资者类型
 
 **分析要求：**
+- 如果缺少必要的数据，可以直接指出，不需要假设分析
 - 如果有季报数据，请重点分析8期数据的趋势变化
 - 识别改善或恶化的早期信号
 - 结合季报数据对未来业绩进行预判
@@ -245,7 +211,8 @@ class DeepSeekClient:
 
 请给出专业、详细的基本面分析报告。
 """
-        self.logger.info(f"基本面分析提示:\n {prompt}")
+        self.logger.info(f"基本面分析提示:\n{prompt}")
+        utils_common.write_file(prompt, "logs/prompt/fundamental_analysis_prompt.txt")
         messages = [
             {"role": "system", "content": "你是一名经验丰富的股票基本面分析师，擅长公司财务分析和行业研究。"},
             {"role": "user", "content": prompt}
@@ -263,11 +230,9 @@ class DeepSeekClient:
             from fund_flow_akshare import FundFlowAkshareDataFetcher
             fetcher = FundFlowAkshareDataFetcher()
             fund_flow_section = f"""
-
-【近20个交易日资金流向详细数据】
 {fetcher.format_fund_flow_for_ai(fund_flow_data)}
 
-以上是通过akshare从东方财富获取的实际资金流向数据，请重点基于这些数据进行趋势分析。
+以上是实际资金流向数据，请重点基于这些数据进行趋势分析。
 """
         else:
             fund_flow_section = "\n【资金流向数据】\n注意：未能获取到资金流向数据，将基于成交量进行分析。\n"
@@ -282,16 +247,15 @@ class DeepSeekClient:
 市值：{stock_info.get('market_cap', 'N/A')}
 
 【技术指标】
-- 量比：{indicators.get('volume_ratio', 'N/A')}
-- 当前成交量与5日均量比：{indicators.get('volume_ratio', 'N/A')}
+- 量比（当前成交量与5日均量比）：{indicators.get('volume_ratio', 'N/A')}
 {fund_flow_section}
 
 【分析要求】
 
-请你**基于上述近20个交易日的完整资金流向数据**，从以下角度进行深入分析：
+请你**基于上述交易日的完整资金流向数据**，从以下角度进行深入分析：
 
 1. **资金流向趋势分析** ⭐ 重点
-   - 分析近20个交易日主力资金的累计净流入/净流出
+   - 分析交易日主力资金的累计净流入/净流出
    - 识别资金流向的趋势性特征（持续流入、持续流出、震荡）
    - 计算主力资金净流入天数占比
    - 评估资金流向强度（累计金额、平均每日金额）
@@ -356,17 +320,19 @@ class DeepSeekClient:
 - 主力资金流入 + 股价下跌 → 可能是主力低位吸筹
 - 主力资金流出 + 股价下跌 → 弱势信号，主力看空
 - 注意区分短期波动与趋势性变化
+- 要基于实际数据进行分析，而不是假设！如果缺少必要的数据，可以直接指出，不需要假设分析结果
 
-请给出专业、详细、有深度的资金面分析报告。记住：要基于问财数据的实际内容进行分析，而不是假设！
+请给出专业、详细、有深度的资金面分析报告。
 """
         
-        self.logger.info(f"资金面分析提示:\n {prompt}")
+        self.logger.info(f"资金面分析提示:\n{prompt}")
+        utils_common.write_file(prompt, "logs/prompt/fund_flow_analysis_prompt.txt")
         messages = [
             {"role": "system", "content": "你是一名经验丰富的资金面分析师，擅长市场资金流向和主力行为分析，能够深入解读资金数据背后的投资逻辑。"},
             {"role": "user", "content": prompt}
         ]
         
-        return self.call_api(messages, max_tokens=3000)
+        return self.call_api(messages, max_tokens=8000)
     
     def comprehensive_discussion(self, technical_report: str, fundamental_report: str, 
                                fund_flow_report: str, stock_info: Dict) -> str:
@@ -399,7 +365,8 @@ class DeepSeekClient:
 
 请模拟一场专业的投资讨论会议，体现不同观点的碰撞和融合。
 """
-        
+        self.logger.info(f"综合讨论提示:\n{prompt}")
+        utils_common.write_file(prompt, "logs/prompt/comprehensive_discussion_prompt.txt")
         messages = [
             {"role": "system", "content": "你是一名资深的首席投资分析师，擅长综合不同维度的分析形成投资判断。"},
             {"role": "user", "content": prompt}
@@ -422,9 +389,20 @@ class DeepSeekClient:
 {comprehensive_discussion}
 
 当前关键技术位：
+- 收盘价：{indicators.get('price', 'N/A')}
+- MA5：{indicators.get('ma5', 'N/A')}
+- MA10：{indicators.get('ma10', 'N/A')}
 - MA20：{indicators.get('ma20', 'N/A')}
+- MA60：{indicators.get('ma60', 'N/A')}
+- RSI：{indicators.get('rsi', 'N/A')}
+- MACD：{indicators.get('macd', 'N/A')}
+- MACD信号线：{indicators.get('macd_signal', 'N/A')}
 - 布林带上轨：{indicators.get('bb_upper', 'N/A')}
 - 布林带下轨：{indicators.get('bb_lower', 'N/A')}
+- K值：{indicators.get('k_value', 'N/A')}
+- D值：{indicators.get('d_value', 'N/A')}
+- J值：{indicators.get('j_value', 'N/A')}
+- 量比：{indicators.get('volume_ratio', 'N/A')}
 
 请给出最终投资决策，必须包含以下内容：
 
@@ -452,14 +430,16 @@ class DeepSeekClient:
     "confidence_level": "信心度(1-10分)"
 }}
 """
-        self.logger.info(f"最终投资决策提示:\n {prompt}")
+        self.logger.info(f"最终投资决策提示:\n{prompt}")
+        utils_common.write_file(prompt, "logs/prompt/final_decision_prompt.txt")
         messages = [
             {"role": "system", "content": "你是一名专业的投资决策专家，需要给出明确、可执行的投资建议。"},
             {"role": "user", "content": prompt}
         ]
         
-        response = self.call_api(messages, temperature=0.3, max_tokens=4000)
-        self.logger.info(f"最终投资决策响应:\n {response}")
+        response = self.call_api(messages, temperature=0.3, max_tokens=8000)
+        self.logger.info(f"最终投资决策响应:\n{response}")
+        utils_common.write_file(response, "logs/prompt/final_decision_result.txt")
         
         try:
             # 尝试解析JSON响应

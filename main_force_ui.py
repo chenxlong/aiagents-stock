@@ -77,7 +77,7 @@ def display_main_force_selector():
         else:
             custom_date = st.date_input(
                 "选择开始日期",
-                value=datetime.now() - timedelta(days=90)
+                value=datetime.now() - timedelta(days=30)
             )
             start_date = f"{custom_date.year}年{custom_date.month}月{custom_date.day}日"
             days_ago = None

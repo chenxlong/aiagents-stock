@@ -321,7 +321,7 @@ class AkshareDataFetcher:
         df = None
         akshare_df = None
 
-        for retry_count in range(3):
+        for retry_count in range(5):
             try:
                 self.logger.info(f"[Akshare] 正在获取{symbol}的资金流向 (市场: {market})..." + (f" (第{retry_count+1}次)"))
                 
@@ -337,10 +337,66 @@ class AkshareDataFetcher:
                     break
             except Exception as e:
                 self.logger.error(f"[Akshare] 获取失败: {e}")
-                if retry_count < 2:
+                if retry_count < 4:
                     delay = (retry_count + 1) * 2
                     self.logger.info(f"[Akshare] {delay}s 后重试...")
                     time.sleep(delay)
+        return df
+
+    # 个股资金流向数据
+    def get_money_flow_sina(self, code: str, page=1, num=60):
+        """
+        code: 600xxx / 000xxx
+        page: 页码
+        num: 每页数量
+        return df
+        例子:
+            opendate    trade  changeratio turnover        netamount   ratioamount               r0               r1              r2             r3           r0_net           r1_net          r2_net         r3_net
+            2026-07-10  29.3900    -0.169305  2207.77  -568566899.7500     -0.135787  2837247389.1800  1231924091.7300  113279600.3000   4622359.4500  -468944875.5100  -101788272.7000    1733575.9000    432672.5600
+        列说明:
+        基础行情字段
+        字段	含义
+        opendate	交易日期 YYYY-MM-DD
+        trade	    当日收盘价
+        changeratio	当日涨跌幅（小数，例 -0.169305 = -16.93%）
+        turnover	换手率（小数，例 2207.77 代表 22.0777%）
+        netamount	全市场当日总资金净流入（超大单 + 大单 + 中单 + 小单合计净额）
+        ratioamount	总资金净流入占当日总成交额比例（小数）
+        
+        分单成交总额（r0/r1/r2/r3） （r0、r1、r2、r3）该档位当日总成交金额（流入 + 流出总和）
+        r0 超大单（特大单）总成交额
+        r1 大单总成交额
+        r2 中单总成交额
+        r3 小单（散单）总成交额
+
+        分单净流入净额（r0_net/r1_net/r2_net/r3_net）
+        字段	对应东方财富命名	 含义
+        r0_net	超大单净流入-净额	超大单（特大单）净流入净额（超大单主动买入 - 超大单主动卖出） 
+        r1_net	大单净流入-净额	    大单净流入净额（大单主动买入 - 大单主动卖出）
+        r2_net	中单净流入-净额	    中单净流入净额（中单净买入 - 中单主动卖出）
+        r3_net	小单净流入-净额	    小单（散单）净流入净额（小单主动买入 - 小单主动卖出）
+
+        """
+        self.logger.debug(f"[Sina-新浪财经] 正在获取 {code} 的资金流向数据...")
+        symbol = self._convert_to_tx_code(code)
+
+        import requests
+        url = "http://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/MoneyFlow.ssl_qsfx_lscjfb"
+        params = {
+            "page": page,
+            "num": num,
+            "sort": "opendate",
+            "asc": 0,
+            "daima": symbol
+        }
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+            "Referer": "https://finance.sina.com.cn/"
+        }
+        resp = requests.get(url, params=params, headers=headers)
+        data = resp.json()
+        df = pd.DataFrame(data)
+        self.logger.debug(f"[Sina-新浪财经] 获取到 {symbol} {len(df)} 条资金流向数据:\n{df}")
         return df
 
     def get_financial_data_akshare(self, symbol, report_type='income'):
@@ -945,12 +1001,12 @@ if __name__ == '__main__':
     # print(f"融资融券标的信息: {margin_trading_data}")
     # time.sleep(2)
 
-    # 17. 融资融券明细（沪市）
-    data_str = "20260703"
-    print(f"\n17. 获取 {test_symbol} 的融资融券明细（沪市）:")
-    margin_trading_data_sh = akshare_data_fetcher.stock_margin_detail_data_sh(data_str)
-    print(f"融资融券明细（沪市）: {margin_trading_data_sh}")
-    time.sleep(2)
+    # # 17. 融资融券明细（沪市）
+    # data_str = "20260703"
+    # print(f"\n17. 获取 {test_symbol} 的融资融券明细（沪市）:")
+    # margin_trading_data_sh = akshare_data_fetcher.stock_margin_detail_data_sh(data_str)
+    # print(f"融资融券明细（沪市）: {margin_trading_data_sh}")
+    # time.sleep(2)
 
     # #18. 融资融券明细（深市） 空数据
     # print(f"\n18. 获取 {test_symbol} 的融资融券明细（深市）:")
@@ -964,31 +1020,35 @@ if __name__ == '__main__':
     # print(f"融资融券汇总（深市）: {margin_trading_data_szse}")
     # time.sleep(2)
 
-    # 20. 个股新闻(东方财富)
-    print(f"\n20. 获取 {test_symbol} 的新闻:")
-    news_data = akshare_data_fetcher.get_stock_news_from_em(test_symbol)
-    print(f"新闻: {news_data}")
-    time.sleep(2)
+    # # 20. 个股新闻(东方财富)
+    # print(f"\n20. 获取 {test_symbol} 的新闻:")
+    # news_data = akshare_data_fetcher.get_stock_news_from_em(test_symbol)
+    # print(f"新闻: {news_data}")
+    # time.sleep(2)
 
-    # 21. 全球财经快讯(新浪财经)
-    print(f"\n21. 获取全球财经快讯(新浪财经):")
-    news_data = akshare_data_fetcher.get_stock_global_news_from_sina()
-    print(f"新闻: {news_data}")
-    time.sleep(2)
+    # # 21. 全球财经快讯(新浪财经)
+    # print(f"\n21. 获取全球财经快讯(新浪财经):")
+    # news_data = akshare_data_fetcher.get_stock_global_news_from_sina()
+    # print(f"新闻: {news_data}")
+    # time.sleep(2)
 
-    # 22. 全球财经快讯(财联社)
-    print(f"\n22. 获取全球财经快讯(财联社):")
-    news_data = akshare_data_fetcher.get_stock_global_news_from_cls()
-    print(f"新闻: {news_data}")
-    time.sleep(2)
+    # # 22. 全球财经快讯(财联社)
+    # print(f"\n22. 获取全球财经快讯(财联社):")
+    # news_data = akshare_data_fetcher.get_stock_global_news_from_cls()
+    # print(f"新闻: {news_data}")
+    # time.sleep(2)
 
-    # 23. 全球财经快讯(同花顺)
-    print(f"\n23. 获取全球财经快讯(同花顺):")
-    news_data = akshare_data_fetcher.get_stock_global_news_from_ths()
-    print(f"新闻: {news_data}")
-    time.sleep(2)
+    # # 23. 全球财经快讯(同花顺)
+    # print(f"\n23. 获取全球财经快讯(同花顺):")
+    # news_data = akshare_data_fetcher.get_stock_global_news_from_ths()
+    # print(f"新闻: {news_data}")
+    # time.sleep(2)
     
-
+    # 24. 个股资金流向数据
+    print(f"\n24. 获取 {test_symbol} 的资金流向数据:")
+    money_flow_data = akshare_data_fetcher.get_money_flow_sina(test_symbol)
+    print(f"资金流向数据: {money_flow_data}")
+    time.sleep(2)
 
     print("\n" + "=" * 50)
     print("测试完成")

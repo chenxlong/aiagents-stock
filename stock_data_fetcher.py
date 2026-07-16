@@ -522,6 +522,7 @@ class StockDataFetcher:
                 "macd": latest['MACD'],
                 "macd_signal": latest['MACD_signal'],
                 "bb_upper": latest['BB_upper'],
+                "bb_middle": latest['BB_middle'],
                 "bb_lower": latest['BB_lower'],
                 "k_value": latest['K'],
                 "d_value": latest['D'],
@@ -551,7 +552,7 @@ class StockDataFetcher:
             "balance_sheet": None,  # 资产负债表
             "income_statement": None,  # 利润表
             "cash_flow": None,  # 现金流量表
-            "financial_ratios": {},  # 财务比率
+            "financial_ratios": None,  # 财务比率
             "quarter_data": None,  # 季度数据
         }
         
@@ -574,44 +575,11 @@ class StockDataFetcher:
             if cash_flow is not None and not cash_flow.empty:
                 financial_data["cash_flow"] = cash_flow.head(8).to_dict('records')
             
-            # 4. 获取主要财务指标 todo（这个和季度报告获取方式一样，要不要用同花顺的财务指标 stock_financial_abstract_ths ？？ ）
+            # 4. 获取主要财务指标 同花顺数据
             financial_abstract = self.data_source_manager.get_stock_financial_main_ths(symbol=symbol)
             self.logger.info(f"获取到 {symbol} 的主要财务指标:\n {financial_abstract}")
             if financial_abstract is not None and not financial_abstract.empty:
-                # 提取关键财务指标
-                key_indicators = [
-                    '归母净利润', '营业总收入', '净利润','扣非净利润','商誉', '经营现金流量净额',
-                    '基本每股收益', '每股净资产', '每股现金流', '每股经营现金流',
-                    '净资产收益率(ROE)', '总资产报酬率(ROA)', '毛利率','销售净利率',
-                    '总资产净利率_平均',
-                    '资产负债率', '流动比率', '速动比率', '应收账款周转率', '存货周转率', '总资产周转率'
-                ]
-                
-                # 筛选出包含关键指标的行
-                indicator_rows = financial_abstract[financial_abstract['指标'].isin(key_indicators)]
-                
-                if not indicator_rows.empty:
-                    # 获取最新的报告期数据（第一列日期）
-                    date_columns = [col for col in financial_abstract.columns if col not in ['选项', '指标']]
-                    if date_columns:
-                        latest_date = date_columns[0]  # 最新日期列
-                        
-                        # 构建财务比率字典
-                        financial_ratios = {"报告期": latest_date}
-                        
-                        # 提取每个指标的最新值
-                        for _, row in indicator_rows.iterrows():
-                            indicator_name = row['指标']
-                            value = row.get(latest_date, 'N/A')
-                            if value is not None and not (isinstance(value, float) and pd.isna(value)):
-                                try:
-                                    financial_ratios[indicator_name] = str(value)
-                                except:
-                                    financial_ratios[indicator_name] = "N/A"
-                            else:
-                                financial_ratios[indicator_name] = "N/A"
-
-                        financial_data["financial_ratios"] = financial_ratios
+                financial_data["financial_ratios"] = financial_abstract.tail(8).to_dict('records')            
             
             # 注意：季报数据现在由 quarterly_report_data.py 模块使用 akshare 获取（8期完整季报）
             # 不再使用问财获取季报，避免重复

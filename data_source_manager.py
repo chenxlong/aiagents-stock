@@ -267,8 +267,42 @@ class DataSourceManager:
         df = self.akshare_fetcher.get_individual_fund_flow_akshare(symbol, market)
         
         if df is None or df.empty:
+            self.logger.info(f"未找到资金流向数据，尝试备用数据源...")
+            df = self.akshare_fetcher.get_money_flow_sina(code=symbol)
+            if df is None or df.empty:
+                self.logger.warning(f"[新浪财经] 未找到资金流向数据")
+            else:
+                # 转数值类型
+                num_cols = ["trade","changeratio","turnover","netamount","ratioamount","r0","r1","r2","r3","r0_net","r1_net","r2_net","r3_net"]
+                for c in num_cols:
+                    df[c] = pd.to_numeric(df[c])
+                df["changeratio"] = df["changeratio"] * 100
+                df["turnover"] = df["turnover"] / 100
+                
+                df.rename(columns={
+                    "opendate": "日期",
+                    "trade": "收盘价",
+                    "changeratio": "涨跌幅",
+                    "turnover": "换手率",
+                    "netamount": "总资金净流入-净额",
+                    "ratioamount": "总资金净流入-净占比",
+                    "r0_net": "超大单净流入-净额",
+                    "r1_net": "大单净流入-净额",
+                    "r2_net": "中单净流入-净额",
+                    "r3_net": "小单净流入-净额"
+                }, inplace=True)
+                # 新增主力净流入列（超大单+大单）
+                df["主力净流入-净额"] = df["超大单净流入-净额"] + df["大单净流入-净额"]
+
+                df['日期'] = pd.to_datetime(df['日期'])
+                df.set_index("日期", inplace=True)
+                # 按日期排序（确保按日期顺序，从早到晚）
+                df = df.sort_values('日期', ascending=True)
+                
+                self.logger.debug(f"[新浪财经] 转换后的资金流向数据:\n{df}")
+
+        if df is None or df.empty:
             self.logger.info(f"[Akshare] 未找到资金流向数据，尝试备用数据源...")
-            
             # akshare失败，尝试tushare
             df = self.tushare_fetcher.get_individual_fund_flow_tushare(symbol, market)
             if df is None or df.empty:
@@ -894,6 +928,7 @@ if __name__ == "__main__":
     print("Data Source Manager 测试套件")
     print("=" * 60)
     
+    # data_source_manager.get_individual_fund_flow("688549", "sh")
     # 私有方法测试
     # test__convert_to_ts_code()
     # test__convert_from_ts_code()

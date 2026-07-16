@@ -31,36 +31,47 @@ def setup_root_logger(root_log_level=logging.DEBUG, console_level=logging.INFO, 
     """
     global _configured
     
-    # 创建日志目录
-    log_dir = "logs"
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-
-    # 创建格式化器
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    
-    # 创建文件处理器（写入文件，支持日志滚动）
-    file_handler = RotatingFileHandler(
-        os.path.join(log_dir, 'app.log'),
-        maxBytes=1024 * 1024 * 10,  # 10MB
-        backupCount=5,  # 保留 5 个备份
-        encoding='utf-8'
-    )
-    file_handler.setLevel(file_level)
-    file_handler.setFormatter(formatter)
-
-    # 创建控制台处理器
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(console_level)
-    console_handler.setFormatter(formatter)
-    
-    # 始终将 handlers 添加到 root logger，确保全局共用
+    # 将 handlers 添加到 root logger，确保全局共用
     root_logger = logging.getLogger()
     root_logger.setLevel(root_log_level)
     
     # 避免重复添加 handler
     if not _configured:
         _configured = True
+        # 打印已有 handler，查看是谁添加的
+        for h in root_logger.handlers:
+            root_logger.warning(f"已有 logger handler: {type(h).__name__}, formatter={h.formatter}")
+
+        # 通过检查 root logger 上是否已有 RotatingFileHandler 来判断是否已配置
+        # 这种方式不受模块热重载影响，因为 handler 是保存在 root logger 上的
+        has_our_handler = any(isinstance(h, RotatingFileHandler) for h in root_logger.handlers)
+        if has_our_handler:
+            root_logger.warning("已配置 RotatingFileHandler，无需重复添加")
+            return root_logger
+
+        # 创建日志目录
+        log_dir = "logs"
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+
+        # 创建格式化器
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        
+        # 创建文件处理器（写入文件，支持日志滚动）
+        file_handler = RotatingFileHandler(
+            os.path.join(log_dir, 'app.log'),
+            maxBytes=1024 * 1024 * 10,  # 10MB
+            backupCount=5,  # 保留 5 个备份
+            encoding='utf-8'
+        )
+        file_handler.setLevel(file_level)
+        file_handler.setFormatter(formatter)
+
+        # 创建控制台处理器
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(console_level)
+        console_handler.setFormatter(formatter)
+        
         root_logger.addHandler(file_handler)
         root_logger.addHandler(console_handler)
     
@@ -93,6 +104,11 @@ def pandas_to_csv(df: pd.DataFrame, file_path: str = 'logs/data_frame.csv', prin
     Returns:
         None
     """
+     # 确保文件路径存在
+    parent_dir = os.path.dirname(file_path)
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir)
+
     df.to_csv(file_path, index=print_index)
 
 

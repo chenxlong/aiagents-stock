@@ -4,6 +4,7 @@ import time
 import config
 import log_utils
 from utils.common import split_thinking_and_result_content
+import utils.common as utils_common
 
 class StockAnalysisAgents:
     """股票分析AI智能体集合"""
@@ -17,10 +18,11 @@ class StockAnalysisAgents:
     def technical_analyst_agent(self, stock_info: Dict, stock_data: Any, indicators: Dict) -> Dict[str, Any]:
         """技术面分析智能体"""
         self.logger.info("🔍 技术分析师正在分析中...")
-        time.sleep(1)  # 模拟分析时间
+        time.sleep(0.1)  # 模拟分析时间
         
         analysis = self.deepseek_client.technical_analysis(stock_info, stock_data, indicators)
-        self.logger.info(f"技术面分析结果:\n {analysis}")
+        self.logger.info(f"技术面分析结果:\n{analysis}")
+        utils_common.write_file(analysis, "logs/prompt/technical_analysis_result.txt")
         
         return {
             "agent_name": "技术分析师",
@@ -46,7 +48,8 @@ class StockAnalysisAgents:
         # time.sleep(1)
         
         analysis = self.deepseek_client.fundamental_analysis(stock_info, financial_data, quarterly_data)
-        self.logger.info(f"基本面分析结果:\n {analysis}")
+        self.logger.info(f"基本面分析结果:\n{analysis}")
+        utils_common.write_file(analysis, "logs/prompt/fundamental_analysis_result.txt")
         
         return {
             "agent_name": "基本面分析师", 
@@ -63,14 +66,15 @@ class StockAnalysisAgents:
         
         # 如果有资金流向数据，显示数据来源
         if fund_flow_data and fund_flow_data.get('data_success'):
-            self.logger.info("   ✓ 已获取资金流向数据（akshare数据源）")
+            self.logger.info("✓ 已获取资金流向数据（akshare数据源）")
         else:
-            self.logger.warning("   ⚠ 未获取到资金流向数据，将基于技术指标分析")
+            self.logger.warning("⚠ 未获取到资金流向数据，将基于技术指标分析")
         
-        time.sleep(1)
+        time.sleep(0.1)
         
         analysis = self.deepseek_client.fund_flow_analysis(stock_info, indicators, fund_flow_data)
-        self.logger.info(f"资金面分析结果:\n {analysis}")
+        self.logger.info(f"资金面分析结果:\n{analysis}")
+        utils_common.write_file(analysis, "logs/prompt/fund_flow_analysis_result.txt")
         
         return {
             "agent_name": "资金面分析师",
@@ -87,11 +91,11 @@ class StockAnalysisAgents:
         
         # 如果有风险数据，显示数据来源
         if risk_data and risk_data.get('data_success'):
-            self.logger.info("   ✓ 已获取问财风险数据（限售解禁、大股东减持、重要事件）")
+            self.logger.info("✓ 已获取问财风险数据（限售解禁、大股东减持、重要事件）")
         else:
-            self.logger.warning("   ⚠ 未获取到风险数据，将基于基本信息分析")
+            self.logger.warning("⚠ 未获取到风险数据，将基于基本信息分析")
         
-        time.sleep(1)
+        time.sleep(0.1)
         
         # 构建风险数据文本
         risk_data_text = ""
@@ -100,11 +104,10 @@ class StockAnalysisAgents:
             from risk_data_fetcher import RiskDataFetcher
             fetcher = RiskDataFetcher()
             risk_data_text = f"""
-
-【实际风险数据】（来自问财）
+【实际风险数据】
 {fetcher.format_risk_data_for_ai(risk_data)}
 
-以上是通过问财（pywencai）获取的实际风险数据，请重点关注这些数据进行深度风险分析。
+以上是实际风险数据，请重点关注这些数据进行深度风险分析。
 """
         
         risk_prompt = f"""
@@ -120,11 +123,12 @@ class StockAnalysisAgents:
 
 技术指标：
 - RSI：{indicators.get('rsi', 'N/A')}
-- 布林带位置：当前价格相对于上下轨的位置
-- 波动率指标等
+- 布林带上轨：{indicators.get('bb_upper', 'N/A')}
+- 布林带中轨：{indicators.get('bb_middle', 'N/A')}
+- 布林带下轨：{indicators.get('bb_lower', 'N/A')}
 {risk_data_text}
 
-⚠️ 重要提示：以上风险数据是从问财（pywencai）实时查询的完整原始数据，请你：
+⚠️ 重要提示：以上风险数据是实时查询的完整原始数据，请你：
 1. 仔细解析每一条记录的所有字段信息
 2. 识别数据中的关键风险点（时间、规模、频率、股东身份等）
 3. 对数据进行深度分析，不要遗漏任何重要信息
@@ -207,15 +211,17 @@ class StockAnalysisAgents:
 请基于实际数据进行客观、专业、严谨的风险评估，给出可操作的风险控制建议。
 如果某些风险数据缺失，也要指出数据缺失本身可能带来的风险。
 """
-        self.logger.info(f"风险提示:\n {risk_prompt}")
+        self.logger.info(f"风险提示:\n{risk_prompt}")
+        utils_common.write_file(risk_prompt, "logs/prompt/risk_analysis_prompt.txt")
         
         messages = [
             {"role": "system", "content": "你是一名资深的风险管理专家，具有20年以上的风险识别和控制经验，擅长全面评估各类投资风险，特别关注限售解禁、股东减持、重要事件等可能影响股价的风险因素。你擅长从海量原始数据中提取关键信息，进行深度解析和量化评估。"},
             {"role": "user", "content": risk_prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=6000)
-        self.logger.info(f"风险分析结果:\n {analysis}")
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
+        self.logger.info(f"风险分析结果:\n{analysis}")
+        utils_common.write_file(analysis, "logs/prompt/risk_analysis_result.txt")
         
         return {
             "agent_name": "风险管理师",
@@ -232,11 +238,11 @@ class StockAnalysisAgents:
         
         # 如果有市场情绪数据，显示数据来源
         if sentiment_data and sentiment_data.get('data_success'):
-            self.logger.info("   ✓ 已获取市场情绪数据（ARBR、换手率、涨跌停等）")
+            self.logger.info("✓ 已获取市场情绪数据（ARBR、换手率、涨跌停等）")
         else:
-            self.logger.warning("   ⚠ 未获取到详细情绪数据，将基于基本信息分析")
+            self.logger.warning("⚠ 未获取到详细情绪数据，将基于基本信息分析")
         
-        time.sleep(1)
+        time.sleep(0.1)
         
         # 构建带有市场情绪数据的prompt
         sentiment_data_text = ""
@@ -245,11 +251,10 @@ class StockAnalysisAgents:
             from market_sentiment_data import MarketSentimentDataFetcher
             fetcher = MarketSentimentDataFetcher()
             sentiment_data_text = f"""
-
-【市场情绪实际数据】
+【实际数据指标如下】
 {fetcher.format_sentiment_data_for_ai(sentiment_data)}
 
-以上是通过akshare获取的实际市场情绪数据，请重点基于这些数据进行分析。
+以上是获取的实际市场情绪数据，请重点基于这些数据进行分析。
 """
         
         sentiment_prompt = f"""
@@ -258,12 +263,11 @@ class StockAnalysisAgents:
 股票信息：
 - 股票代码：{stock_info.get('symbol', 'N/A')}
 - 股票名称：{stock_info.get('name', 'N/A')}
-- 行业：{stock_info.get('sector', 'N/A')}
+- 行业：{stock_info.get('industry', 'N/A')}
 - 细分行业：{stock_info.get('industry', 'N/A')}
 {sentiment_data_text}
 
 请从以下角度进行深度分析：
-
 1. **ARBR情绪指标分析**
    - 详细解读AR和BR数值的含义
    - 分析当前市场人气和投机意愿
@@ -297,15 +301,17 @@ class StockAnalysisAgents:
 
 请确保分析基于实际数据，给出客观专业的市场情绪评估。
 """
-        self.logger.info(f"市场情绪提示:\n {sentiment_prompt}")
+        self.logger.info(f"市场情绪提示:\n{sentiment_prompt}")
+        utils_common.write_file(sentiment_prompt, "logs/prompt/market_sentiment_analysis_prompt.txt")
         
         messages = [
             {"role": "system", "content": "你是一名专业的市场情绪分析师，擅长解读市场心理和投资者行为，善于利用ARBR等情绪指标进行分析。"},
             {"role": "user", "content": sentiment_prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
-        self.logger.info(f"市场情绪分析结果:\n {analysis}")
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
+        self.logger.info(f"市场情绪分析结果:\n{analysis}")
+        utils_common.write_file(analysis, "logs/prompt/market_sentiment_analysis_result.txt")
         
         return {
             "agent_name": "市场情绪分析师",
@@ -324,11 +330,11 @@ class StockAnalysisAgents:
         if news_data and news_data.get('data_success'):
             news_count = news_data.get('news_data', {}).get('count', 0) if news_data.get('news_data') else 0
             source = news_data.get('source', 'unknown')
-            self.logger.info(f"   ✓ 已从 {source} 获取 {news_count} 条新闻")
+            self.logger.info(f"✓ 已从 {source} 获取 {news_count} 条新闻")
         else:
-            self.logger.warning("   ⚠ 未获取到新闻数据，将基于基本信息分析")
+            self.logger.warning("⚠ 未获取到新闻数据，将基于基本信息分析")
         
-        time.sleep(1)
+        time.sleep(0.1)
         
         # 构建带有新闻数据的prompt
         news_text = ""
@@ -337,11 +343,9 @@ class StockAnalysisAgents:
             from qstock_news_data import QStockNewsDataFetcher
             fetcher = QStockNewsDataFetcher()
             news_text = f"""
-
-【最新新闻数据】
 {fetcher.format_news_for_ai(news_data)}
 
-以上是通过qstock获取的实际新闻数据，请重点基于这些数据进行分析。
+以上是获取的实际新闻数据，请重点基于这些数据进行分析。
 """
         
         news_prompt = f"""
@@ -350,7 +354,7 @@ class StockAnalysisAgents:
 股票信息：
 - 股票代码：{stock_info.get('symbol', 'N/A')}
 - 股票名称：{stock_info.get('name', 'N/A')}
-- 行业：{stock_info.get('sector', 'N/A')}
+- 行业：{stock_info.get('industry', 'N/A')}
 - 细分行业：{stock_info.get('industry', 'N/A')}
 {news_text}
 
@@ -399,15 +403,17 @@ class StockAnalysisAgents:
 请确保分析客观、专业，重点关注对投资决策有实质性影响的内容。
 如果某些新闻的重要性较低，可以简要提及或略过。
 """
-        self.logger.info(f"新闻提示:\n {news_prompt}")
+        self.logger.info(f"新闻提示:\n{news_prompt}")
+        utils_common.write_file(news_prompt, "logs/prompt/news_analysis_prompt.txt")
         
         messages = [
             {"role": "system", "content": "你是一名专业的新闻分析师，擅长解读新闻事件、舆情分析，评估新闻对股价的影响。你具有敏锐的洞察力和丰富的市场经验。"},
             {"role": "user", "content": news_prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
-        self.logger.info(f"新闻分析结果:\n {analysis}")
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
+        self.logger.info(f"新闻分析结果:\n{analysis}")
+        utils_common.write_file(analysis, "logs/prompt/news_analysis_result.txt")
 
         return {
             "agent_name": "新闻分析师",
@@ -484,7 +490,7 @@ class StockAnalysisAgents:
     def conduct_team_discussion(self, agents_results: Dict[str, Any], stock_info: Dict) -> str:
         """进行团队讨论"""
         self.logger.info("🤝 分析团队正在进行综合讨论...")
-        time.sleep(2)
+        time.sleep(0.1)
         
         # 收集参与分析的分析师名单和报告
         participants = []
@@ -529,7 +535,6 @@ class StockAnalysisAgents:
 股票：{stock_info.get('name', 'N/A')} ({stock_info.get('symbol', 'N/A')})
 
 各分析师报告：
-
 {all_reports}
 
 请模拟一场真实的投资决策会议讨论：
@@ -543,15 +548,17 @@ class StockAnalysisAgents:
 请以对话形式展现讨论过程，体现专业团队的思辨过程。
 注意：只讨论参与分析的分析师的观点。
 """
-        self.logger.info(f"团队讨论提示:\n {discussion_prompt}")
+        self.logger.info(f"团队讨论提示:\n{discussion_prompt}")
+        utils_common.write_file(discussion_prompt, "logs/prompt/team_discussion_prompt.txt")
         
         messages = [
             {"role": "system", "content": "你需要模拟一场专业的投资团队讨论会议，体现不同角色的观点碰撞和最终共识形成。"},
             {"role": "user", "content": discussion_prompt}
         ]
         
-        discussion_result = self.deepseek_client.call_api(messages, max_tokens=6000)
-        self.logger.info(f"团队讨论结果:\n {discussion_result}")
+        discussion_result = self.deepseek_client.call_api(messages, max_tokens=8000)
+        self.logger.info(f"团队讨论结果:\n{discussion_result}")
+        utils_common.write_file(discussion_result, "logs/prompt/team_discussion_result.txt")
 
         self.logger.info("✅ 团队讨论完成")
         return discussion_result
@@ -559,11 +566,11 @@ class StockAnalysisAgents:
     def make_final_decision(self, discussion_result: str, stock_info: Dict, indicators: Dict) -> Dict[str, Any]:
         """制定最终投资决策"""
         self.logger.info("📋 正在制定最终投资决策...")
-        time.sleep(1)
+        time.sleep(0.1)
         
         _, analysis = split_thinking_and_result_content(discussion_result)
         decision = self.deepseek_client.final_decision(analysis, stock_info, indicators)
-        self.logger.info(f"最终投资决策:\n {decision}")
+        self.logger.info(f"最终投资决策:\n{decision}")
         
         self.logger.info("✅ 最终投资决策完成")
         return decision

@@ -2,8 +2,8 @@
 工具函数
 """
 
+import os
 import re
-
 
 #"【推理过程开始】\n{message.reasoning_content}\n【推理过程结束】\nXXXXX"
 def split_thinking_and_result_content(text: str) -> tuple[str, str]:
@@ -22,7 +22,26 @@ def split_thinking_and_result_content(text: str) -> tuple[str, str]:
         return match.group(1).strip(), match.group(2).strip()
     else:
         return "", text.strip()
+
+
+def write_file(content: str, file_path: str = "output.txt"):
+    """
+    将内容写入文件
     
+    Args:
+        content: 要写入的内容
+        file_path: 文件路径，默认为 output.txt
+    Returns:
+        None
+    """
+    # 确保文件路径存在
+    parent_dir = os.path.dirname(file_path)
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir)
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
 
 if __name__ == "__main__":
     tests = [
@@ -40,3 +59,5 @@ if __name__ == "__main__":
         thinking, content = split_thinking_and_result_content(text)
         print(f"推理过程: [{thinking}]")
         print(f"分析结果: [{content}]")
+
+    write_file("content", f"logs/test/analysis_test.txt")

@@ -8,30 +8,33 @@
 from typing import Dict, List, Tuple
 import pandas as pd
 from main_force_selector import main_force_selector
-from stock_data_fetcher import StockDataFetcher
-from ai_agents import StockAnalysisAgents
+# from stock_data_fetcher import StockDataFetcher
+# from ai_agents import StockAnalysisAgents
 from deepseek_client import DeepSeekClient
 import time
+from datetime import datetime, timedelta
 import json
 import config
 import log_utils
+import utils.common as utils_common
 
 # 显示候选股票前多少行数（前100名）
 _prompt_display_stock_data_top_num = 100
 
 class MainForceAnalyzer:
-    """主力选股分析器 - 批量整体分析"""
+    """主力选股分析器（智能体） - 批量整体分析"""
     
     def __init__(self, model=None):
         self.logger = log_utils.get_logger(__name__)
-        self.logger.debug("初始化主力选股分析器")
         self.selector = main_force_selector
-        self.fetcher = StockDataFetcher()
+        # self.fetcher = StockDataFetcher()
         self.model = model or config.DEFAULT_MODEL_NAME
-        self.agents = StockAnalysisAgents(model=self.model)
-        self.deepseek_client = self.agents.deepseek_client
+        # self.agents = StockAnalysisAgents(model=self.model)
+        # self.deepseek_client = self.agents.deepseek_client
+        self.deepseek_client = DeepSeekClient(model=self.model)
         self.raw_stocks = None
         self.final_recommendations = []
+        self.logger.debug("主力选股分析器初始化完成")
     
     def run_full_analysis(self, start_date: str = None, days_ago: int = None, 
                          final_n: int = None, max_range_change: float = None,
@@ -88,6 +91,7 @@ class MainForceAnalyzer:
                 return result
             
             result['total_stocks'] = len(raw_data)
+            log_utils.pandas_to_csv(raw_data, file_path=f"logs/csv/main_force_raw.csv", print_index=True)
             
             # 步骤2: 智能筛选（涨幅、市值等）
             filtered_data = self.selector.filter_stocks(
@@ -105,8 +109,8 @@ class MainForceAnalyzer:
             
             # 保存原始数据
             self.raw_stocks = filtered_data
-            self.logger.info(f"筛选后数据: {filtered_data}")
-            log_utils.pandas_to_csv(filtered_data, file_path=f"logs/main_force_filtered.csv", print_index=True)
+            self.logger.info(f"筛选后数据:\n{filtered_data}")
+            log_utils.pandas_to_csv(filtered_data, file_path=f"logs/csv/main_force_filtered.csv", print_index=True)
             
             # 步骤3: 整体数据分析（不是逐个分析）
             self.logger.info(f"\n{'='*80}")
@@ -115,7 +119,7 @@ class MainForceAnalyzer:
             
             # 准备整体数据摘要
             overall_summary = self._prepare_overall_summary(filtered_data)
-            self.logger.info(f"整体数据摘要: {overall_summary}")
+            self.logger.info(f"整体数据摘要:\n{overall_summary}")
             
             # 三大分析师整体分析
             fund_flow_analysis = self._fund_flow_overall_analysis(filtered_data, overall_summary)
@@ -132,11 +136,16 @@ class MainForceAnalyzer:
             self.logger.info(f"👔 资深研究员综合评估并精选标的...")
             self.logger.info(f"{'='*80}\n")
             
+            # 分析结果过滤，去掉thinking过程内容
+            _thinking, fund_flow_analysis_content = utils_common.split_thinking_and_result_content(fund_flow_analysis)
+            _thinking, industry_analysis_content = utils_common.split_thinking_and_result_content(industry_analysis)
+            _thinking, fundamental_analysis_content = utils_common.split_thinking_and_result_content(fundamental_analysis)
+
             final_recommendations = self._select_best_stocks(
                 filtered_data,
-                fund_flow_analysis,
-                industry_analysis,
-                fundamental_analysis,
+                fund_flow_analysis_content,
+                industry_analysis_content,
+                fundamental_analysis_content,
                 final_n=final_n
             )
             
@@ -210,7 +219,7 @@ class MainForceAnalyzer:
         self.logger.info("💰 资金流向分析师整体分析中...")
         
         # 准备数据表格
-        data_table = self._prepare_data_table(df, focus='fund_flow')
+        csv_data = self._prepare_data_table(df, focus='fund_flow')
         
         prompt = f"""
 你是一名资深的资金面分析师，现在需要你从整体角度分析这批主力资金净流入的股票。
@@ -218,8 +227,8 @@ class MainForceAnalyzer:
 【整体数据摘要】
 {summary}
 
-【候选股票详细数据】（共{len(df)}只）
-{data_table}
+【候选股票数据（CSV格式）】（共{len(df)}只）
+{csv_data}
 
 【分析任务】
 请从资金流向的整体角度进行分析，重点关注：
@@ -245,18 +254,20 @@ class MainForceAnalyzer:
 
 请给出专业、系统的资金面整体分析报告。
 """
-        self.logger.debug(f"资金流向分析提示: {prompt}")
+        self.logger.debug(f"资金流向分析提示:{prompt}")
+        utils_common.write_file(prompt, "logs/prompt/main_force_analysis/fund_flow_overall_analysis_prompt.txt")
         
         messages = [
             {"role": "system", "content": "你是资金面分析专家，擅长从整体资金流向中发现投资机会。"},
             {"role": "user", "content": prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
 
-        self.logger.debug(f"AI资金流向分析结果:\n {analysis}")
-        self.logger.info("  ✅ 资金流向整体分析完成")
-        time.sleep(1)
+        self.logger.debug(f"AI资金流向分析结果:\n{analysis}")
+        utils_common.write_file(analysis, "logs/prompt/main_force_analysis/fund_flow_overall_analysis_result.txt")
+        self.logger.info("✅ 资金流向整体分析完成")
+        time.sleep(0.1)
         
         return analysis
     
@@ -266,7 +277,7 @@ class MainForceAnalyzer:
         self.logger.info("📊 行业板块分析师整体分析中...")
         
         # 准备数据表格
-        data_table = self._prepare_data_table(df, focus='industry')
+        csv_data = self._prepare_data_table(df, focus='industry')
         
         prompt = f"""
 你是一名资深的行业板块分析师，现在需要你从行业热点和板块轮动角度分析这批股票。
@@ -274,8 +285,8 @@ class MainForceAnalyzer:
 【整体数据摘要】
 {summary}
 
-【候选股票详细数据】（共{len(df)}只）
-{data_table}
+【候选股票数据（CSV格式）】（共{len(df)}只）
+{csv_data}
 
 【分析任务】
 请从行业板块的整体角度进行分析，重点关注：
@@ -301,18 +312,20 @@ class MainForceAnalyzer:
 
 请给出专业、深入的行业板块分析报告。
 """
-        self.logger.debug(f"行业板块分析提示: {prompt}")
+        self.logger.debug(f"行业板块分析提示:\n{prompt}")
+        utils_common.write_file(prompt, "logs/prompt/main_force_analysis/industry_overall_analysis_prompt.txt")
         
         messages = [
             {"role": "system", "content": "你是行业板块分析专家，擅长发现市场热点和板块机会。"},
             {"role": "user", "content": prompt}
         ]
         
-        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
         
-        self.logger.debug(f"AI行业板块分析结果:\n {analysis}")
-        self.logger.info("  ✅ 行业板块整体分析完成")
-        time.sleep(1)
+        self.logger.debug(f"AI行业板块分析结果:\n{analysis}")
+        utils_common.write_file(analysis, "logs/prompt/main_force_analysis/industry_overall_analysis_result.txt")
+        self.logger.info("✅ 行业板块整体分析完成")
+        time.sleep(0.1)
         
         return analysis
     
@@ -322,7 +335,7 @@ class MainForceAnalyzer:
         self.logger.info("📈 财务基本面分析师整体分析中...")
         
         # 准备数据表格
-        data_table = self._prepare_data_table(df, focus='fundamental')
+        csv_data = self._prepare_data_table(df, focus='fundamental')
         
         prompt = f"""
 你是一名资深的基本面分析师，现在需要你从财务质量和基本面角度分析这批股票。
@@ -330,8 +343,8 @@ class MainForceAnalyzer:
 【整体数据摘要】
 {summary}
 
-【候选股票详细数据】（共{len(df)}只）
-{data_table}
+【候选股票数据（CSV格式）】（共{len(df)}只）
+{csv_data}
 
 【分析任务】
 请从财务基本面的整体角度进行分析，重点关注：
@@ -357,7 +370,8 @@ class MainForceAnalyzer:
 
 请给出专业、详实的基本面分析报告。
 """
-        self.logger.debug(f"财务基本面分析提示: {prompt}")
+        self.logger.debug(f"财务基本面分析提示:\n{prompt}")
+        utils_common.write_file(prompt, "logs/prompt/main_force_analysis/fundamental_overall_analysis_prompt.txt")
         
         messages = [
             {"role": "system", "content": "你是基本面分析专家，擅长从财务角度评估投资价值。"},
@@ -366,9 +380,10 @@ class MainForceAnalyzer:
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
         
-        self.logger.debug(f"AI财务基本面分析结果:\n {analysis}")
-        self.logger.info("  ✅ 财务基本面整体分析完成")
-        time.sleep(1)
+        self.logger.debug(f"AI财务基本面分析结果:\n{analysis}")
+        utils_common.write_file(analysis, "logs/prompt/main_force_analysis/fundamental_overall_analysis_result.txt")
+        self.logger.info("✅ 财务基本面整体分析完成")
+        time.sleep(0.1)
         
         return analysis
     
@@ -381,7 +396,7 @@ class MainForceAnalyzer:
         # 根据分析重点添加相关列
         if focus == 'fund_flow' or focus == 'all':
             fund_cols = [col for col in df.columns if '主力' in col or '资金' in col]
-            key_columns.extend(fund_cols[:3])  # 最多3列资金数据
+            key_columns.extend(fund_cols[:4])  # 最多4列资金数据
         
         if focus == 'industry' or focus == 'all':
             industry_cols = [col for col in df.columns if '行业' in col]
@@ -420,15 +435,15 @@ class MainForceAnalyzer:
         # 限制显示前多少只股票的详细数据，避免超出token限制
         display_df = df[unique_columns].head(_prompt_display_stock_data_top_num)
         # 保存到CSV文件
-        log_utils.pandas_to_csv(display_df, file_path=f"logs/main_force_filtered_{focus}_display_top_{_prompt_display_stock_data_top_num}.csv", print_index=True)
+        log_utils.pandas_to_csv(display_df, file_path=f"logs/csv/main_force_filtered_{focus}_display_top_{_prompt_display_stock_data_top_num}.csv", print_index=True)
         
-        # 转换为表格字符串
-        table_str = display_df.to_string(index=False, max_rows=_prompt_display_stock_data_top_num)
+        # 转换为CSV格式字符串
+        csv_table_str = display_df.to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n')
         
         if len(df) > _prompt_display_stock_data_top_num:
-            table_str += f"\n... 还有 {len(df) - _prompt_display_stock_data_top_num} 只股票未显示"
+            csv_table_str += f"\n... 还有 {len(df) - _prompt_display_stock_data_top_num} 只股票未显示"
         
-        return table_str
+        return csv_table_str
     
     def _select_best_stocks(self, df: pd.DataFrame, 
                            fund_analysis: str, 
@@ -439,14 +454,14 @@ class MainForceAnalyzer:
         self.logger.info("开始综合三位分析师的意见，精选最优标的...")
         
         # 准备完整数据表格
-        data_table = self._prepare_data_table(df, focus='all')
+        csv_data = self._prepare_data_table(df, focus='all')
         
         prompt = f"""
 你是一名资深股票研究员，具有20年以上的投资研究经验。现在需要你综合三位分析师的意见，
 从{len(df)}只候选股票中精选出{final_n}只最具投资价值的优质标的。
 
-【候选股票数据】
-{data_table}
+【候选股票数据（CSV格式）】
+{csv_data}
 
 【资金流向分析师观点】
 {fund_analysis}
@@ -503,18 +518,20 @@ class MainForceAnalyzer:
 - 按投资价值从高到低排序
 - 理由要具体、有说服力，体现三位分析师的综合观点
 """
-        self.logger.debug(f"综合分析提示: {prompt}")
+        self.logger.debug(f"主力选股综合分析师提示:\n{prompt}")
+        utils_common.write_file(prompt, "logs/prompt/main_force_analysis/select_best_stocks_prompt.txt")
         
         try:
-            self.logger.info("  🔍 正在综合评估并精选标的...")
+            self.logger.info("🔍 正在综合评估并精选标的...")
             
             messages = [
                 {"role": "system", "content": "你是资深股票研究员，擅长综合多维度分析做出投资决策。"},
                 {"role": "user", "content": prompt}
             ]
             
-            response = self.deepseek_client.call_api(messages, max_tokens=4000)
-            self.logger.debug(f"AI综合分析结果:\n {response}")
+            response = self.deepseek_client.call_api(messages, max_tokens=8000)
+            self.logger.debug(f"主力选股综合分析师结果:\n{response}")
+            utils_common.write_file(response, "logs/prompt/main_force_analysis/select_best_stocks_result.txt")
             
             # 解析JSON响应
             import re
@@ -541,7 +558,7 @@ class MainForceAnalyzer:
             return recommendations
             
         except Exception as e:
-            self.logger.error(f"  ❌ JSON解析失败，使用备选方案: {e}")
+            self.logger.error(f"❌ JSON解析失败，使用备选方案: {e}")
             
             # 降级方案：按主力资金排序返回前N个
             # main_fund_cols = [col for col in df.columns if '主力' in col and '净流入' in col]
@@ -560,7 +577,7 @@ class MainForceAnalyzer:
                     'symbol': row.get('股票代码', 'N/A'),
                     'name': row.get('股票简称', 'N/A'),
                     'reasons': [
-                        f"主力资金净流入较多",
+                        f"AI返回数据解析失败，使用备选方案。降级方案：按主力资金排序返回前{final_n}个股票，主力资金净流入较多",
                         f"所属行业: {row.get('所属同花顺行业', 'N/A')}",
                         f"涨跌幅适中"
                     ],

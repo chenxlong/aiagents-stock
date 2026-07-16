@@ -1,10 +1,8 @@
-# chenxl add start 日志配置
+# 日志配置
 import log_utils
-
 # 日志配置必须放在所有其他模块导入之前，确保最先执行
 log_utils.setup_root_logger()
 logger = log_utils.get_logger(__name__)
-# chenxl add end
 
 from requests import session
 import streamlit as st
@@ -33,13 +31,12 @@ from news_flow_ui import display_news_flow_monitor
 
 # 页面配置 - 必须放在所有其他 Streamlit 命令之前
 st.set_page_config(
-    page_title="复合多AI智能体股票团队分析系统",
+    page_title="多智能体股票分析系统",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# chenxl add start 
 # 页面重新加载计数
 def test_update_reload_count():
     # 初始化计数器：只有第一次运行时才会执行（刷新）
@@ -51,9 +48,8 @@ def test_update_reload_count():
     logger.info(f"✅ 页面重新加载！第{st.session_state.reload_count}次")
 
 test_update_reload_count()
-# chenxl add end
 
-# # chenxl add start 
+
 # # 页面刷新加载计数 使用 URL 参数来持久化计数器（解决刷新页面重置的问题）
 # def update_refresh_count():
 #     # 使用 URL 参数来持久化计数器（解决刷新页面重置的问题）
@@ -68,7 +64,7 @@ test_update_reload_count()
 #     # 更新 URL 参数（不会触发页面刷新）
 #     query_params["refresh_count"] = str(current_count)
 #     logger.info(f"✅ 页面重新加载！第{current_count}次")
-# # chenxl add end
+
 
 # 在侧边栏显示当前模型信息（统一使用.env配置）
 def show_current_model_info():
@@ -310,7 +306,7 @@ def main():
     # 顶部标题栏
     st.markdown("""
     <div class="top-nav">
-        <h1 class="nav-title">📈 复合多AI智能体股票团队分析系统</h1>
+        <h1 class="nav-title">📈 多智能体股票分析系统</h1>
         <p class="nav-subtitle">基于DeepSeek的专业量化投资分析平台 | Multi-Agent Stock Analysis System</p>
     </div>
     """, unsafe_allow_html=True)
@@ -379,7 +375,7 @@ def main():
             if st.button("🎯 智策板块", width='stretch', key="nav_sector_strategy", help="AI板块策略分析"):
                 st.session_state.show_sector_strategy = True
                 for key in ['show_history', 'show_monitor', 'show_config', 'show_main_force',
-                           'show_longhubang', 'show_portfolio', 'show_smart_monitor', 'show_low_price_bull', 'show_news_flow', 'show_macro_analysis']:
+                           'show_longhubang', 'show_portfolio', 'show_smart_monitor', 'show_low_price_bull', 'show_profit_growth', 'show_news_flow', 'show_macro_analysis']:
                     if key in st.session_state:
                         del st.session_state[key]
 
@@ -1257,7 +1253,7 @@ def run_stock_analysis(symbol, period):
                 from fund_flow_akshare import FundFlowAkshareDataFetcher
                 fund_flow_fetcher = FundFlowAkshareDataFetcher()
                 fund_flow_data = fund_flow_fetcher.get_fund_flow_data(symbol)
-                logger.debug(f"获取到的资金流向数据\n: {fund_flow_data}")
+                logger.debug(f"获取到的资金流向数据:\n{fund_flow_data}")
                 if fund_flow_data and fund_flow_data.get('data_success'):
                     days = fund_flow_data.get('fund_flow_data', {}).get('days', 0) if fund_flow_data.get('fund_flow_data') else 0
                     st.info(f"✅ 成功获取 {days} 个交易日的资金流向数据")
@@ -1318,7 +1314,7 @@ def run_stock_analysis(symbol, period):
             status_text.text("⚠️ 正在获取风险数据（限售解禁、大股东减持、重要事件）...")
             try:
                 risk_data = fetcher.get_risk_data(symbol)
-                logger.debug(f"获取到的风险数据\n: {risk_data}")
+                logger.debug(f"获取到的风险数据:\n{risk_data}")
                 if risk_data and risk_data.get('data_success'):
                     # 统计获取到的风险数据类型
                     risk_types = []

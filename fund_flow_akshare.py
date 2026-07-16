@@ -76,11 +76,11 @@ class FundFlowAkshareDataFetcher:
             
             # 获取资金流向数据
             fund_flow_data = self._get_individual_fund_flow(symbol, market)
-            self.logger.debug(f"获取到资金流向数据:\n {fund_flow_data}")
+            self.logger.debug(f"获取到资金流向数据:\n{fund_flow_data}")
             
             if fund_flow_data:
                 data["fund_flow_data"] = fund_flow_data
-                self.logger.info(f"   [OK] 成功获取 {len(fund_flow_data.get('data', []))} 个交易日的资金流向数据")
+                self.logger.info(f"[OK] 成功获取 {len(fund_flow_data.get('data', []))} 个交易日的资金流向数据")
                 data["data_success"] = True
                 self.logger.info("[完成] 资金流向数据获取完成")
             else:
@@ -156,7 +156,7 @@ class FundFlowAkshareDataFetcher:
             }
             
         except Exception as e:
-            self.logger.error(f"   获取资金流向数据异常: {e}")
+            self.logger.error(f"获取资金流向数据异常: {e}")
             import traceback
             traceback.print_exc()
             return None
@@ -165,7 +165,7 @@ class FundFlowAkshareDataFetcher:
         """
         将资金流向数据格式化为适合AI阅读的文本
         """
-        self.logger.debug(f"   [Akshare] -格式化资金流向数据: {data}")
+        self.logger.debug(f"[Akshare] -格式化资金流向数据: {data}")
         
         if not data or not data.get("data_success"):
             return "未能获取资金流向数据"
@@ -174,93 +174,51 @@ class FundFlowAkshareDataFetcher:
         
         fund_flow_data = data.get("fund_flow_data")
         if fund_flow_data:
+            fund_flow_data_df = pd.DataFrame(fund_flow_data.get('data', []))
+            fund_flow_data_csv = fund_flow_data_df.to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n')
+
+            fund_flow_data_df_copy = fund_flow_data_df.copy()
+            # ========== 主力资金统计 ==========
+            main_flow = fund_flow_data_df_copy["主力净流入-净额"]
+            total_main_inflow = main_flow.sum()
+            avg_main_inflow = main_flow.mean()
+            positive_days = (main_flow > 0).sum()
+            negative_days = (main_flow < 0).sum()
+            total_days = len(main_flow)
+            inflow_ratio = positive_days / total_days * 100
+            # ========== 股价涨跌幅统计 ==========
+            change_pct = fund_flow_data_df_copy["涨跌幅"]
+            avg_change = change_pct.mean()
+            up_days = (change_pct > 0).sum()
+            down_days = (change_pct < 0).sum()
+            up_ratio = up_days / total_days * 100
+
             text_parts.append(f"""
-【个股资金流向数据 - akshare数据源】
+【个股资金流向数据】
 股票代码：{data.get('symbol', 'N/A')}
 市场：{fund_flow_data.get('market', 'N/A').upper()}
 交易日数：最近{fund_flow_data.get('days', 0)}个交易日
 查询时间：{fund_flow_data.get('query_time', 'N/A')}
 
 ═══════════════════════════════════════
-[资金流向详细数据]
+[资金流向详细数据(CSV格式)]
+{fund_flow_data_csv}
+
 ═══════════════════════════════════════
+[统计汇总]
+    主力资金统计:
+    - 累计净流入: {total_main_inflow:.2f}
+    - 平均每日净流入: {avg_main_inflow:.2f}
+    - 净流入天数: {positive_days}天
+    - 净流出天数: {negative_days}天
+    - 净流入占比: {inflow_ratio:.1f}%
+    股价统计:
+    - 平均涨跌幅: {avg_change:.2f}%
+    - 上涨天数: {up_days}天
+    - 下跌天数: {down_days}天
+    - 上涨占比: {up_ratio:.1f}%
 """)
-            
-            # 显示每个交易日的数据
-            for idx, item in enumerate(fund_flow_data.get('data', []), 1):
-                date = item.get('日期', 'N/A')
-                close_price = item.get('收盘价', 'N/A')
-                change_pct = item.get('涨跌幅', 'N/A')
-                
-                text_parts.append(f"""
-第 {idx} 个交易日 ({date}):
-  基本信息:
-    - 收盘价: {close_price}
-    - 涨跌幅: {change_pct}%
-  
-  主力资金:
-    - 主力净流入-净额: {item.get('主力净流入-净额', 'N/A')}
-    - 主力净流入-净占比: {item.get('主力净流入-净占比', 'N/A')}%
-  
-  超大单:
-    - 超大单净流入-净额: {item.get('超大单净流入-净额', 'N/A')}
-    - 超大单净流入-净占比: {item.get('超大单净流入-净占比', 'N/A')}%
-  
-  大单:
-    - 大单净流入-净额: {item.get('大单净流入-净额', 'N/A')}
-    - 大单净流入-净占比: {item.get('大单净流入-净占比', 'N/A')}%
-  
-  中单:
-    - 中单净流入-净额: {item.get('中单净流入-净额', 'N/A')}
-    - 中单净流入-净占比: {item.get('中单净流入-净占比', 'N/A')}%
-  
-  小单:
-    - 小单净流入-净额: {item.get('小单净流入-净额', 'N/A')}
-    - 小单净流入-净占比: {item.get('小单净流入-净占比', 'N/A')}%
-""")
-            
-            # 添加统计汇总
-            text_parts.append("""
-═══════════════════════════════════════
-[统计汇总 - 最近30个交易日]
-═══════════════════════════════════════
-""")
-            
-            # 计算统计数据
-            data_list = fund_flow_data.get('data', [])
-            if data_list:
-                # 主力净流入统计
-                main_inflow_list = [item.get('主力净流入-净额', 0) for item in data_list if isinstance(item.get('主力净流入-净额'), (int, float))]
-                if main_inflow_list:
-                    total_main_inflow = sum(main_inflow_list)
-                    avg_main_inflow = total_main_inflow / len(main_inflow_list)
-                    positive_days = len([x for x in main_inflow_list if x > 0])
-                    negative_days = len([x for x in main_inflow_list if x < 0])
-                    
-                    text_parts.append(f"""
-主力资金统计:
-  - 累计净流入: {total_main_inflow:.2f}
-  - 平均每日净流入: {avg_main_inflow:.2f}
-  - 净流入天数: {positive_days}天
-  - 净流出天数: {negative_days}天
-  - 净流入占比: {positive_days/len(main_inflow_list)*100:.1f}%
-""")
-                
-                # 涨跌幅统计
-                change_pct_list = [item.get('涨跌幅', 0) for item in data_list if isinstance(item.get('涨跌幅'), (int, float))]
-                if change_pct_list:
-                    avg_change = sum(change_pct_list) / len(change_pct_list)
-                    up_days = len([x for x in change_pct_list if x > 0])
-                    down_days = len([x for x in change_pct_list if x < 0])
-                    
-                    text_parts.append(f"""
-股价统计:
-  - 平均涨跌幅: {avg_change:.2f}%
-  - 上涨天数: {up_days}天
-  - 下跌天数: {down_days}天
-  - 上涨占比: {up_days/len(change_pct_list)*100:.1f}%
-""")
-        
+
         return "\n".join(text_parts)
 
 

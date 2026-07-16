@@ -151,11 +151,10 @@ class QStockNewsDataFetcher:
         if data.get("news_data"):
             news_data = data["news_data"]
             text_parts.append(f"""
-【最新新闻 - akshare数据源】
+【最新新闻】
 查询时间：{news_data.get('query_time', 'N/A')}
 时间范围：{news_data.get('date_range', 'N/A')}
 新闻数量：{news_data.get('count', 0)}条
-
 """)
             
             for idx, item in enumerate(news_data.get('items', []), 1):
@@ -177,17 +176,20 @@ class QStockNewsDataFetcher:
                 for key, value in item.items():
                     if key not in priority_fields and key != 'source':
                         # 跳过过长的字段
-                        if len(str(value)) > 300:
-                            value = str(value)[:300] + "..."
+                        if len(str(value)) > 500:
+                            value = str(value)[:500] + "..."
                         text_parts.append(f"  {key}: {value}")
                 
                 text_parts.append("")  # 空行分隔
-        
-        return "\n".join(text_parts)
+        result_txt = "\n".join(text_parts)
+        self.logger.debug(f"新闻数据格式化为适合AI阅读的文本:\n{result_txt}")
+        return result_txt
 
 
 # 测试函数
 if __name__ == "__main__":
+    log_utils.setup_root_logger()
+
     print("测试新闻数据获取（akshare数据源）...")
     print("="*60)
     

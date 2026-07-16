@@ -135,7 +135,7 @@ class QuarterlyReportDataFetcher:
                 item = {}
                 for col in df.columns:
                     value = row.get(col)
-                    if value is None or (isinstance(value, float) and pd.isna(value)):
+                    if value is None or pd.isna(value):
                         continue
                     try:
                         item[col] = str(value)
@@ -175,7 +175,7 @@ class QuarterlyReportDataFetcher:
                 item = {}
                 for col in df.columns:
                     value = row.get(col)
-                    if value is None or (isinstance(value, float) and pd.isna(value)):
+                    if value is None or pd.isna(value):
                         continue
                     try:
                         item[col] = str(value)
@@ -215,7 +215,7 @@ class QuarterlyReportDataFetcher:
                 item = {}
                 for col in df.columns:
                     value = row.get(col)
-                    if value is None or (isinstance(value, float) and pd.isna(value)):
+                    if value is None or pd.isna(value):
                         continue
                     try:
                         item[col] = str(value)
@@ -274,7 +274,7 @@ class QuarterlyReportDataFetcher:
                 for _, row in indicator_rows.iterrows():
                     indicator_name = row['指标']
                     value = row.get(date_col)
-                    if value is not None and not (isinstance(value, float) and pd.isna(value)):
+                    if value is not None and not pd.isna(value):
                         try:
                             # 尝试转换为字符串
                             item[indicator_name] = str(value)
@@ -302,115 +302,57 @@ class QuarterlyReportDataFetcher:
         self.logger.info(f"格式化季报数据为AI阅读文本")
         if not data or not data.get("data_success"):
             return "未能获取季报数据"
+
+        # 利润表数据表
+        income_statement = data["income_statement"]
+        # 资产负债表数据表
+        balance_sheet = data["balance_sheet"]
+        # 现金流量表数据表
+        cash_flow = data["cash_flow"]
+        # 财务指标数据表
+        financial_indicators = data["financial_indicators"]
+
+        # 字典转DataFrame
+        income_statement_df = pd.DataFrame(income_statement.get('data', []))
+        balance_sheet_df = pd.DataFrame(balance_sheet.get('data', []))
+        cash_flow_df = pd.DataFrame(cash_flow.get('data', []))
+        financial_indicators_df = pd.DataFrame(financial_indicators.get('data', []))
         
-        text_parts = []
-        text_parts.append(f"""
-【季度财务报告数据】
-股票代码：{data.get('symbol', 'N/A')}
+        # DataFrame转CSV字符串（替换换行符，避免日志文件中出现空行）
+        income_statement_csv = income_statement_df.to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+        balance_sheet_csv = balance_sheet_df.to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+        cash_flow_csv = cash_flow_df.to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+        financial_indicators_csv = financial_indicators_df.to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+
+        text_parts = f"""
+【季度财务报告详细数据】
 数据期数：最近{self.periods}期季报
-""")
-        
-        # 利润表数据
-        if data.get("income_statement"):
-            income_data = data["income_statement"]
-            text_parts.append(f"""
 ═══════════════════════════════════════
-📊 利润表（最近{income_data.get('periods', 0)}期）
-═══════════════════════════════════════
-""")
-            
-            # 提取关键指标
-            key_fields = ['报告期', '报告日', '营业总收入', '营业收入', '营业总成本', '营业利润', 
-                         '利润总额', '净利润', '归属于母公司所有者的净利润', 
-                         '基本每股收益', '稀释每股收益']
-            
-            for idx, item in enumerate(income_data.get('data', []), 1):
-                text_parts.append(f"\n第 {idx} 期:")
-                for field in key_fields:
-                    if field in item:
-                        text_parts.append(f"  {field}: {item[field]}")
-                
-                # 显示其他重要字段（如果有）
-                other_fields = ['销售费用', '管理费用', '财务费用', '研发费用']
-                for field in other_fields:
-                    if field in item:
-                        text_parts.append(f"  {field}: {item[field]}")
-        
-        # 资产负债表数据
-        if data.get("balance_sheet"):
-            balance_data = data["balance_sheet"]
-            text_parts.append(f"""
+📊 利润表（CSV格式，最近{income_statement.get('periods', 0)}期）
+{income_statement_csv}
 
 ═══════════════════════════════════════
-📊 资产负债表（最近{balance_data.get('periods', 0)}期）
-═══════════════════════════════════════
-""")
-            
-            # 提取关键指标
-            key_fields = ['报告期', '报告日', '资产总计', '流动资产合计', '非流动资产合计',
-                         '负债合计', '流动负债合计', '非流动负债合计',
-                         '所有者权益(或股东权益)合计', '归属于母公司股东权益合计']
-            
-            for idx, item in enumerate(balance_data.get('data', []), 1):
-                text_parts.append(f"\n第 {idx} 期:")
-                for field in key_fields:
-                    if field in item:
-                        text_parts.append(f"  {field}: {item[field]}")
-        
-        # 现金流量表数据
-        if data.get("cash_flow"):
-            cash_flow_data = data["cash_flow"]
-            text_parts.append(f"""
+📊 资产负债表（CSV格式，最近{balance_sheet.get('periods', 0)}期）
+{balance_sheet_csv}
 
 ═══════════════════════════════════════
-📊 现金流量表（最近{cash_flow_data.get('periods', 0)}期）
-═══════════════════════════════════════
-""")
-            
-            # 提取关键指标
-            key_fields = ['报告期', '报告日', '经营活动产生的现金流量净额', 
-                         '投资活动产生的现金流量净额', '筹资活动产生的现金流量净额',
-                         '现金及现金等价物净增加额', '期末现金及现金等价物余额']
-            
-            for idx, item in enumerate(cash_flow_data.get('data', []), 1):
-                text_parts.append(f"\n第 {idx} 期:")
-                for field in key_fields:
-                    if field in item:
-                        text_parts.append(f"  {field}: {item[field]}")
-        
-        # 财务指标数据
-        if data.get("financial_indicators"):
-            indicators_data = data["financial_indicators"]
-            text_parts.append(f"""
+📊 现金流量表（CSV格式，最近{cash_flow.get('periods', 0)}期）
+{cash_flow_csv}
 
 ═══════════════════════════════════════
-📊 关键财务指标（最近{indicators_data.get('periods', 0)}期）
-═══════════════════════════════════════
-""")
-            
-            # 提取关键指标
-            key_fields = [
-                '报告期', '报告日',
-                '归母净利润', '营业总收入', '净利润','扣非净利润','商誉', '经营现金流量净额',
-                '基本每股收益', '每股净资产', '每股现金流', '每股经营现金流',
-                '净资产收益率(ROE)', '总资产报酬率(ROA)', '毛利率','销售净利率',
-                '总资产净利率_平均',
-                '资产负债率', '流动比率', '速动比率', '应收账款周转率', '存货周转率', '总资产周转率'
-            ]
-            
-            for idx, item in enumerate(indicators_data.get('data', []), 1):
-                text_parts.append(f"\n第 {idx} 期:")
-                for field in key_fields:
-                    if field in item:
-                        text_parts.append(f"  {field}: {item[field]}")
-        
-        return "\n".join(text_parts)
+📊 关键财务指标（CSV格式，最近{financial_indicators.get('periods', 0)}期）
+{financial_indicators_csv}
+"""
+        self.logger.debug(f"为AI阅读格式化季报数据完成:{text_parts}")
+        return text_parts
 
 
 # 测试函数
 if __name__ == "__main__":
     print("测试季报数据获取（akshare数据源）...")
     print("="*60)
+
+    log_utils.setup_root_logger()
     
     fetcher = QuarterlyReportDataFetcher()
     

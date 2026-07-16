@@ -639,6 +639,7 @@ class MarketSentimentDataFetcher:
                     latest = stock_data.iloc[0]
                     
                     # 融资融券数据
+                    margin_buy_amount = float(latest.get('融资买入额', 0))
                     margin_balance = float(latest.get('融资余额', 0))
                     short_volume = float(latest.get('融券余量', 0))
                     
@@ -665,6 +666,7 @@ class MarketSentimentDataFetcher:
                         interpretation.append("融券数据不足")
                     
                     return {
+                        "margin_buy": margin_buy_amount,
                         "margin_balance": margin_balance,
                         "short_balance": short_balance,
                         "interpretation": interpretation,
@@ -678,14 +680,12 @@ class MarketSentimentDataFetcher:
     def _get_fear_greed_index(self):
         """计算市场恐慌贪婪指数（基于多个指标综合计算）
         多维度指标：
-        1. 涨跌家数比例
-        2. 涨跌停比例
-        3. 真实涨跌停比例
-        4. 涨停率（权重10%）- 上涨股票中涨停的比例
-        5. 成交量变化率
+        1. 涨跌家数比例（权重50%）- 市场广度，最核心指标
+        2. 涨跌停比（权重30%）- 涨跌停数量比例，反映多空力量极端程度
+        3. 涨停率（权重20%）- 上涨股票中涨停的比例，反映赚钱效应
         """
         try:
-            score = 50  # 基准分数
+            score = 50  # 基准分数（中性）
             factors = []
             
             # 获取涨跌家数
@@ -698,59 +698,60 @@ class MarketSentimentDataFetcher:
                 suspended_count = float(data.get('停牌', 0))
                 limit_up_count = float(data.get('涨停', 0))
                 limit_down_count = float(data.get('跌停', 0))
-                real_limit_up = float(data.get('真实涨停', 0))
-                real_limit_down = float(data.get('真实跌停', 0))
                 activity_rate = data.get('活跃度', '0%')
                 stat_datetime = data.get('统计日期', 'N/A')
 
                 total_count = up_count + down_count + flat_count + suspended_count
                 
-                # 1. 涨跌家数比例（权重40%）
+                # 1. 涨跌家数比例（权重50%）- 核心指标
+                # 上涨家数占比：0%→-50分，50%→0分，100%→+50分
                 if total_count > 0:
                     up_ratio = up_count / total_count
-                    score += (up_ratio - 0.5) * 80
-                    factors.append(f"涨跌家数比例: {up_ratio:.1%}")
+                    score += (up_ratio - 0.5) * 100
+                    factors.append(f"涨跌家数比例: {up_ratio:.1%}（{int(up_count)}家上涨/{int(total_count)}家）")
                 
-                # 2. 涨跌停比例（权重30%）
-                limit_total = limit_up_count + limit_down_count
-                if limit_total > 0:
-                    limit_up_ratio = limit_up_count / limit_total
-                    score += (limit_up_ratio - 0.5) * 60
-                    factors.append(f"涨跌停比例: {limit_up_ratio:.1%}（涨停{int(limit_up_count)}家/跌停{int(limit_down_count)}家）")
+                # 2. 涨跌停比（权重30%）- 反映极端多空力量
+                # 涨停/跌停比：0→-30分，1→0分，10→+30分
+                if limit_down_count > 0:
+                    limit_ratio = limit_up_count / limit_down_count
+                    # 限制范围，避免极端值影响
+                    score += min(max((limit_ratio - 1) * 3, -30), 30)
+                    factors.append(f"涨跌停比: {limit_ratio:.1f}:1（涨停{int(limit_up_count)}家/跌停{int(limit_down_count)}家）")
+                elif limit_up_count > 0:
+                    # 只有涨停没有跌停，极度乐观
+                    score += 30
+                    factors.append(f"涨跌停比: 无跌停（涨停{int(limit_up_count)}家）")
                 
-                # 3. 真实涨跌停比例（权重20%）- 剔除ST股
-                real_limit_total = real_limit_up + real_limit_down
-                if real_limit_total > 0:
-                    real_limit_up_ratio = real_limit_up / real_limit_total
-                    score += (real_limit_up_ratio - 0.5) * 40
-                    factors.append(f"真实涨跌停比例: {real_limit_up_ratio:.1%}（涨停{int(real_limit_up)}家/跌停{int(real_limit_down)}家）")
-                
-                # 4. 涨停率（权重10%）- 上涨股票中涨停的比例
+                # 3. 涨停率（权重20%）- 反映赚钱效应
+                # 基准2%，涨停率0%→-20分，2%→0分，12%→+20分
                 if up_count > 0:
                     limit_up_rate = limit_up_count / up_count
-                    score += (limit_up_rate - 0.05) * 50
+                    score += (limit_up_rate - 0.02) * 200
                     factors.append(f"涨停率: {limit_up_rate:.2%}（涨停{int(limit_up_count)}家/上涨{int(up_count)}家）")
             
             # 确保分数在0-100之间
             score = max(0, min(100, score))
             
             # 解读恐慌贪婪指数
-            if score >= 80:
+            if score >= 85:
                 level = "极度贪婪"
                 interpretation = "市场情绪极度乐观，投资者贪婪，需警惕回调风险"
-            elif score >= 65:
+            elif score >= 70:
                 level = "贪婪"
                 interpretation = "市场情绪乐观，投资者偏向贪婪，注意追高风险"
-            elif score >= 55:
+            elif score >= 60:
                 level = "偏乐观"
                 interpretation = "市场情绪偏乐观，短期可能继续上涨"
-            elif score >= 45:
-                level = "中性"
-                interpretation = "市场情绪中性，投资者相对理性"
-            elif score >= 35:
+            elif score >= 50:
+                level = "中性偏多"
+                interpretation = "市场情绪中性偏多，多空力量相对均衡"
+            elif score >= 40:
+                level = "中性偏空"
+                interpretation = "市场情绪中性偏空，多空力量相对均衡"
+            elif score >= 30:
                 level = "偏悲观"
                 interpretation = "市场情绪偏悲观，短期可能继续下跌"
-            elif score >= 20:
+            elif score >= 15:
                 level = "恐慌"
                 interpretation = "市场情绪悲观，投资者偏向恐慌"
             else:
@@ -815,8 +816,7 @@ ARBR统计数据：
             text_parts.append(f"""
 【大盘市场情绪】
 - 指数：{market.get('index_name', 'N/A')}
-- 涨跌幅：{market.get('change_percent', 'N/A')}%
-""")
+- 涨跌幅：{market.get('change_percent', 'N/A')}%""")
             if market.get('sentiment_score'):
                 text_parts.append(f"""- 市场情绪得分：{market.get('sentiment_score', 'N/A')}
 - 涨家数：{market.get('up_count', 'N/A')}只
@@ -832,7 +832,7 @@ ARBR统计数据：
 【涨跌停统计】
 - 涨停股数量：{limit.get('limit_up_count', 0)}只
 - 跌停股数量：{limit.get('limit_down_count', 0)}只
-- 涨停占比：{limit.get('limit_ratio', 'N/A')}
+- 涨跌停比例：{limit.get('limit_ratio', 'N/A')}
 - 解读：{limit.get('interpretation', 'N/A')}
 """)
         
