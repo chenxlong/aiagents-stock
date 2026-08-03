@@ -121,70 +121,6 @@ def get_capital_tag(seat_name: str):
         return "北向资金", "外资资金"
     return "未知营业部", "待识别"
 
-def fetch_lhb_all_seat(trade_date: str, sleep_sec=1.3):
-    """
-    采集单日龙虎榜全部席位+自动游资标签
-    :param trade_date: 日期 格式 20260729
-    :param sleep_sec: 请求间隔，防止限流
-    :return: 全市场龙虎席位明细df
-    """
-    # 日期转换为YYYYMMDD格式
-    trade_date = trade_date.replace("-", "")
-    try:
-        # 第一步：获取当日上榜个股清单
-        stock_list_df = ak.stock_lhb_detail_em(
-            start_date=trade_date,
-            end_date=trade_date
-        )
-    except Exception as e:
-        logger.error(f"获取上榜个股清单失败：{e}")
-        return pd.DataFrame()
-
-        # =========【新增：构建代码→股票名称映射字典】=========
-    code_name_map = dict(zip(stock_list_df["代码"], stock_list_df["名称"]))
-    codes = stock_list_df["代码"].unique()
-    logger.info(f"当日龙虎榜个股数量：{len(codes)}")
-
-    all_data = []
-    for code in codes:
-        try:
-            stock_name = code_name_map[code]  # 根据代码取出股票名称
-            # 买入前五席位
-            buy_df = ak.stock_lhb_stock_detail_em(
-                symbol=code, date=trade_date, flag="买入"
-            )
-            buy_df["股票代码"] = code
-            buy_df["股票名称"] = stock_name
-            buy_df["上榜日期"] = trade_date
-            buy_df["买卖方向"] = "买入前五"
-            all_data.append(buy_df)
-
-            # 卖出前五席位
-            sell_df = ak.stock_lhb_stock_detail_em(
-                symbol=code, date=trade_date, flag="卖出"
-            )
-            sell_df["股票代码"] = code
-            sell_df["股票名称"] = stock_name
-            sell_df["上榜日期"] = trade_date
-            sell_df["买卖方向"] = "卖出前五"
-            all_data.append(sell_df)
-            # 限流延时必不可少
-            time.sleep(sleep_sec)
-        except Exception as err:
-            logger.error(f"{code} 获取席位异常: {str(err)}")
-            continue
-
-    if not all_data:
-        return pd.DataFrame()
-
-    result_df = pd.concat(all_data, ignore_index=True)
-    # 增加游资标签
-    result_df.rename(columns={"交易营业部名称": "营业部名称"}, inplace=True)
-    result_df[["游资名称", "资金风格"]] = result_df["营业部名称"].apply(
-        lambda x: pd.Series(get_capital_tag(x))
-    )
-    
-    return result_df
 
 class LonghubangDataFetcher:
     """龙虎榜数据获取类"""
@@ -282,7 +218,7 @@ class LonghubangDataFetcher:
         """
         self.logger.info(f"[智瞰龙虎] 获取 {date} 的龙虎榜数据...")
         
-        df_data = fetch_lhb_all_seat(date)
+        df_data = self.fetch_lhb_all_seat(date)
         if df_data.empty:
             self.logger.error(f" ✗ 未获取到数据")
             return None
@@ -346,7 +282,7 @@ class LonghubangDataFetcher:
             end_date.strftime('%Y-%m-%d')
         )
     
-    def parse_to_dataframe(self, data_list):
+    def parse_to_dataframe_old(self, data_list):
         """
         将龙虎榜数据转换为DataFrame
         
@@ -373,6 +309,55 @@ class LonghubangDataFetcher:
             'jlrje': '净流入金额',
             'rq': '日期',
             'gl': '概念'
+        }
+        
+        df = df.rename(columns=column_mapping)
+        
+        # 转换数据类型
+        numeric_columns = ['买入金额', '卖出金额', '净流入金额']
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        
+        # 排序
+        if '净流入金额' in df.columns:
+            df = df.sort_values('净流入金额', ascending=False)
+        
+        self.logger.debug(f"[智瞰龙虎] 转换后的数据:\n{df}")
+        
+        return df
+    
+    def parse_to_dataframe(self, data_list):
+        """
+        将龙虎榜数据转换为DataFrame
+        
+        Args:
+            data_list: 龙虎榜数据列表
+            
+        Returns:
+            pd.DataFrame: 数据框
+        """
+        if not data_list:
+            return pd.DataFrame()
+        
+        df = pd.DataFrame(data_list)
+        
+        # 重命名列
+        column_mapping = {
+            '游资名称': '游资名称',
+            '资金风格': '资金风格',
+            '营业部名称': '营业部',
+            '类型': '榜单类型',
+            '股票代码': '股票代码',
+            '股票名称': '股票名称',
+            '买入金额': '买入金额',
+            '买入金额-占总成交比例': '买入金额-占总成交比例',
+            '卖出金额': '卖出金额',
+            '卖出金额-占总成交比例': '卖出金额-占总成交比例',
+            '净额': '净流入金额',
+            '上榜日期': '日期',
+            '买卖方向': '买卖方向',
+            '概念': '概念'
         }
         
         df = df.rename(columns=column_mapping)
@@ -477,19 +462,24 @@ class LonghubangDataFetcher:
 净流入金额: {summary.get('total_net_inflow', 0):,.2f} 元
 """)
         
-        # Top游资
+        # Top游资 csv格式化
         if summary.get('top_youzi'):
-            text_parts.append("\n【活跃游资 TOP10】")
-            for idx, (name, amount) in enumerate(summary['top_youzi'].items(), 1):
-                text_parts.append(f"{idx}. {name}: {amount:,.2f} 元")
+            top_youzi_df = pd.DataFrame(
+                list(summary['top_youzi'].items()),
+                columns=['游资名称', '净流入金额']
+            )
+            text_parts.append("\n【活跃游资 TOP10】（CSV格式，金额单位：万元）")
+            # 转换为CSV格式字符串
+            top_youzi_csv = top_youzi_df.to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+            text_parts.append(top_youzi_csv)
         
         # Top股票
         if summary.get('top_stocks'):
-            text_parts.append("\n【资金净流入 TOP20股票】")
-            for idx, stock in enumerate(summary['top_stocks'], 1):
-                text_parts.append(
-                    f"{idx}. {stock['name']}({stock['code']}): {stock['net_inflow']:,.2f} 元"
-                )
+            top_stocks_df = pd.DataFrame(summary['top_stocks'])
+            text_parts.append("\n【资金净流入 TOP20股票】（CSV格式，金额单位：万元）")
+             # 转换为CSV格式字符串
+            top_stocks_csv = top_stocks_df.to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+            text_parts.append(top_stocks_csv)
         
         # 热门概念
         if summary.get('hot_concepts'):
@@ -498,20 +488,79 @@ class LonghubangDataFetcher:
                 text_parts.append(f"{idx}. {concept}: {count} 次")
         
         # 详细交易记录（前50条）
-        text_parts.append("\n【详细交易记录 TOP50】")
-        for idx, row in df.head(50).iterrows():
-            text_parts.append(
-                f"{row.get('游资名称', 'N/A')} | "
-                f"{row.get('股票名称', 'N/A')}({row.get('股票代码', 'N/A')}) | "
-                f"买入:{row.get('买入金额', 0):,.0f} "
-                f"卖出:{row.get('卖出金额', 0):,.0f} "
-                f"净流入:{row.get('净流入金额', 0):,.0f} | "
-                f"日期:{row.get('日期', 'N/A')}"
-            )
-        
+        text_parts.append("\n【详细交易记录 TOP50】（CSV格式，金额单位：万元）")
+        # 转换为CSV格式字符串
+        top_records_csv = df.head(50).to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+        text_parts.append(top_records_csv)
+
         over_view = "\n".join(text_parts)
         self.logger.debug(f"[智瞰龙虎] 龙虎榜总体概况:\n{over_view}")
         return over_view
+
+    def fetch_lhb_all_seat(self, trade_date: str, sleep_sec=1.3):
+        """
+        采集单日龙虎榜全部席位+自动游资标签
+        :param trade_date: 日期 格式 20260729
+        :param sleep_sec: 请求间隔，防止限流
+        :return: 全市场龙虎席位明细df
+        """
+        # 日期转换为YYYYMMDD格式
+        trade_date = trade_date.replace("-", "")
+        try:
+            # 第一步：获取当日上榜个股清单
+            stock_list_df = ak.stock_lhb_detail_em(
+                start_date=trade_date,
+                end_date=trade_date
+            )
+        except Exception as e:
+            self.logger.error(f"获取上榜个股清单失败：{e}")
+            return pd.DataFrame()
+
+        # =========【新增：构建代码→股票名称映射字典】=========
+        code_name_map = dict(zip(stock_list_df["代码"], stock_list_df["名称"]))
+        codes = stock_list_df["代码"].unique()
+        self.logger.info(f"当日龙虎榜个股数量：{len(codes)}")
+
+        all_data = []
+        for code in codes:
+            try:
+                stock_name = code_name_map[code]  # 根据代码取出股票名称
+                # 买入前五席位
+                buy_df = ak.stock_lhb_stock_detail_em(
+                    symbol=code, date=trade_date, flag="买入"
+                )
+                buy_df["股票代码"] = code
+                buy_df["股票名称"] = stock_name
+                buy_df["上榜日期"] = trade_date
+                buy_df["买卖方向"] = "买入前五"
+                all_data.append(buy_df)
+
+                # 卖出前五席位
+                sell_df = ak.stock_lhb_stock_detail_em(
+                    symbol=code, date=trade_date, flag="卖出"
+                )
+                sell_df["股票代码"] = code
+                sell_df["股票名称"] = stock_name
+                sell_df["上榜日期"] = trade_date
+                sell_df["买卖方向"] = "卖出前五"
+                all_data.append(sell_df)
+                # 限流延时必不可少
+                time.sleep(sleep_sec)
+            except Exception as err:
+                self.logger.error(f"{code} 获取席位异常: {str(err)}")
+                continue
+
+        if not all_data:
+            return pd.DataFrame()
+
+        result_df = pd.concat(all_data, ignore_index=True)
+        # 增加游资标签
+        result_df.rename(columns={"交易营业部名称": "营业部名称"}, inplace=True)
+        result_df[["游资名称", "资金风格"]] = result_df["营业部名称"].apply(
+            lambda x: pd.Series(get_capital_tag(x))
+        )
+        
+        return result_df
 
 
 # 测试函数
@@ -523,18 +572,18 @@ if __name__ == "__main__":
     log_utils.setup_root_logger()
     logger = log_utils.get_logger()
 
+    fetcher = LonghubangDataFetcher()
+
     # # 计算耗时
     # start_time = time.time()
-    # df_lhb = fetch_lhb_all_seat(trade_date="20260730")
+    # df_lhb = fetcher.fetch_lhb_all_seat(trade_date="20260803")
     # end_time = time.time()
     # logger.info(f"[智瞰龙虎] 获取到 {len(df_lhb)} 条龙虎榜数据，耗时：{end_time - start_time} 秒")
     # logger.info(f"[智瞰龙虎] 获取到 {len(df_lhb)} 条龙虎榜数据:\n{df_lhb}")
-    # df_lhb.to_csv("logs/龙虎榜席位_20260730.csv", index=False, encoding="utf-8-sig")
-    
-    fetcher = LonghubangDataFetcher()
+    # df_lhb.to_csv("logs/龙虎榜席位_20260803.csv", index=False, encoding="utf-8-sig")
     
     # 测试获取单日数据
-    date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    date = (datetime.now() - timedelta(days=0)).strftime('%Y-%m-%d')
     result = fetcher.get_longhubang_data(date)
     
     if result and result.get('data'):
