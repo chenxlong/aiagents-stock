@@ -8,7 +8,8 @@ from typing import Dict, Any
 import time
 import config
 import log_utils
-
+import pandas as pd
+import utils.common as utils_common
 
 class SectorStrategyAgents:
     """板块策略AI智能体集合"""
@@ -38,32 +39,10 @@ class SectorStrategyAgents:
             for idx, news in enumerate(news_data[:30], 1):
                 news_summary += f"{idx}. [{news.get('publish_time', '')}] {news.get('title', '')}\n"
                 if news.get('content'):
-                    news_summary += f"   摘要: {news['content'][:200]}...\n"
+                    news_summary += f"   摘要: {news['content'][:500]}...\n"
         
         # 构建市场概况
-        market_summary = ""
-        if market_data:
-            market_summary = f"""
-【市场概况】
-大盘指数:
-"""
-            if market_data.get("sh_index"):
-                sh = market_data["sh_index"]
-                market_summary += f"  上证指数: {sh['close']} ({sh['change_pct']:+.2f}%)\n"
-            if market_data.get("sz_index"):
-                sz = market_data["sz_index"]
-                market_summary += f"  深证成指: {sz['close']} ({sz['change_pct']:+.2f}%)\n"
-            if market_data.get("cyb_index"):
-                cyb = market_data["cyb_index"]
-                market_summary += f"  创业板指: {cyb['close']} ({cyb['change_pct']:+.2f}%)\n"
-            
-            if market_data.get("total_stocks"):
-                market_summary += f"""
-市场涨跌统计:
-  上涨: {market_data['up_count']} ({market_data['up_ratio']:.1f}%)
-  下跌: {market_data['down_count']}
-  涨停: {market_data['limit_up']} | 跌停: {market_data['limit_down']}
-"""
+        market_summary = self._format_market_overview(market_data)
         
         prompt = f"""
 你是一名资深的宏观策略分析师，拥有10年以上的市场研究经验，擅长从宏观经济和政策新闻中洞察市场趋势。
@@ -106,6 +85,7 @@ class SectorStrategyAgents:
 请给出专业、深入的宏观策略分析报告。
 """
         self.logger.debug(f"[智策智能体] 宏观策略师分析提示:\n {prompt}")
+        utils_common.write_file(prompt, "logs/prompt/sector_strategy_analysis/macro_strategist_agent_prompt.txt")
         
         messages = [
             {"role": "system", "content": "你是一名资深的宏观策略分析师，擅长从宏观经济、政策和新闻事件中把握市场脉搏。"},
@@ -113,7 +93,8 @@ class SectorStrategyAgents:
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
-        self.logger.debug(f"[智策智能体] 宏观策略师分析结果:\n {analysis}")
+        self.logger.debug(f"[智策智能体] 宏观策略师分析结果:\n{analysis}")
+        utils_common.write_file(analysis, "logs/prompt/sector_strategy_analysis/macro_strategist_agent_result.txt")
 
         self.logger.info(" ✓ 宏观策略师分析完成")
         
@@ -137,25 +118,58 @@ class SectorStrategyAgents:
         self.logger.info("📊 板块诊断师正在分析...")
         time.sleep(1)
         
-        # 构建行业板块数据
-        sector_summary = ""
-        if sectors_data:
-            sorted_sectors = sorted(sectors_data.items(), key=lambda x: x[1]["change_pct"], reverse=True)
+#         # 构建行业板块数据
+#         sector_summary = ""
+#         if sectors_data:
+#             sorted_sectors = sorted(sectors_data.items(), key=lambda x: x[1]["change_pct"], reverse=True)
             
-            sector_summary = f"""
-【行业板块表现】(共 {len(sectors_data)} 个板块)
+#             sector_summary = f"""
+# 【行业板块表现】(共 {len(sectors_data)} 个板块)
 
-涨幅榜 TOP15:
-"""
-            for idx, (name, info) in enumerate(sorted_sectors[:15], 1):
-                sector_summary += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {info['turnover']:.2f}% | 领涨股: {info['top_stock']} ({info['top_stock_change']:+.2f}%) | 涨跌家数: {info['up_count']}/{info['down_count']}\n"
+# 涨幅榜 TOP15:
+# """
+#             for idx, (name, info) in enumerate(sorted_sectors[:15], 1):
+#                 sector_summary += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {info['turnover']:.2f}% | 领涨股: {info['top_stock']} ({info['top_stock_change']:+.2f}%) | 涨跌家数: {info['up_count']}/{info['down_count']}\n"
             
-            sector_summary += f"""
-跌幅榜 TOP10:
-"""
-            for idx, (name, info) in enumerate(sorted_sectors[-10:], 1):
-                sector_summary += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {info['turnover']:.2f}% | 领跌股: {info['top_stock']} ({info['top_stock_change']:+.2f}%) | 涨跌家数: {info['up_count']}/{info['down_count']}\n"
+#             sector_summary += f"""
+# 跌幅榜 TOP10:
+# """
+#             for idx, (name, info) in enumerate(sorted_sectors[-10:], 1):
+#                 sector_summary += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {info['turnover']:.2f}% | 领跌股: {info['top_stock']} ({info['top_stock_change']:+.2f}%) | 涨跌家数: {info['up_count']}/{info['down_count']}\n"
         
+        # 构建行业板块数据
+        if sectors_data:
+            list_sectors = list(sectors_data.values())
+            df = pd.DataFrame(list_sectors)
+            df.rename(columns = {
+                "name": '行业板块',
+                "change_pct": '涨跌幅',
+                "total_volume": '总成交量（万手）',
+                "total_amount": '总成交额（亿元）',
+                "net_flow": '净流入（亿元）',
+                "up_count": '上涨家数',
+                "down_count": '下跌家数',
+                "top_stock": '领涨股',
+                "top_stock_price": '领涨股-最新价',
+                "top_stock_change": '领涨股-涨跌幅',
+            }, inplace = True)
+
+            df = df.sort_values(by="涨跌幅", ascending=False)
+            # 去除无效的两列
+            df = df.drop(columns=["turnover", "total_market_cap"])
+
+            top15_csv = df.head(15).to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+            tail10_csv = df.tail(10).to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+
+            sector_summary = f"""
+【行业板块表现】(共 {len(df)} 个板块)
+涨幅榜前15名数据(CSV格式):
+{top15_csv}
+
+涨幅榜后10名数据(CSV格式):
+{tail10_csv}
+"""
+
         # 构建概念板块数据
         concept_summary = ""
         if concepts_data:
@@ -172,7 +186,6 @@ class SectorStrategyAgents:
         prompt = f"""
 你是一名资深的板块分析师，具有CFA资格和深厚的行业研究背景，擅长板块诊断和趋势判断。
 
-【市场环境】
 {self._format_market_overview(market_data)}
 
 {sector_summary}
@@ -220,6 +233,7 @@ class SectorStrategyAgents:
 请给出专业、详细的板块诊断报告。
 """
         self.logger.debug(f"[智策智能体] 板块诊断师分析提示:\n {prompt}")
+        utils_common.write_file(prompt, "logs/prompt/sector_strategy_analysis/sector_diagnostician_agent_prompt.txt")
         
         messages = [
             {"role": "system", "content": "你是一名资深的板块分析师，擅长板块趋势判断和投资价值评估。"},
@@ -228,6 +242,8 @@ class SectorStrategyAgents:
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
         self.logger.debug(f"[智策智能体] 板块诊断师分析结果:\n {analysis}")
+        utils_common.write_file(analysis, "logs/prompt/sector_strategy_analysis/sector_diagnostician_agent_result.txt")
+
         self.logger.info(" ✓ 板块诊断师分析完成")
         
         return {
@@ -250,43 +266,84 @@ class SectorStrategyAgents:
         self.logger.info("💰 资金流向分析师正在分析...")
         time.sleep(1)
         
+#         # 构建资金流向数据
+#         fund_flow_summary = ""
+#         if fund_flow_data and fund_flow_data.get("today"):
+#             flow_list = fund_flow_data["today"]
+            
+#             # 净流入前15
+#             sorted_inflow = sorted(flow_list, key=lambda x: x["main_net_inflow"], reverse=True)
+#             fund_flow_summary = f"""
+# 【板块资金流向】(更新时间: {fund_flow_data.get('update_time', 'N/A')})
+
+# 主力资金净流入 TOP15:
+# """
+#             for idx, item in enumerate(sorted_inflow[:15], 1):
+#                 fund_flow_summary += f"{idx}. {item['sector']}: {item['main_net_inflow']:.2f}万 ({item['main_net_inflow_pct']:+.2f}%) | 涨跌: {item['change_pct']:+.2f}% | 超大单: {item['super_large_net_inflow']:.2f}万\n"
+            
+#             # 净流出前10
+#             sorted_outflow = sorted(flow_list, key=lambda x: x["main_net_inflow"])
+#             fund_flow_summary += f"""
+# 主力资金净流出 TOP10:
+# """
+#             for idx, item in enumerate(sorted_outflow[:10], 1):
+#                 fund_flow_summary += f"{idx}. {item['sector']}: {item['main_net_inflow']:.2f}万 ({item['main_net_inflow_pct']:+.2f}%) | 涨跌: {item['change_pct']:+.2f}%\n"
+        
         # 构建资金流向数据
-        fund_flow_summary = ""
         if fund_flow_data and fund_flow_data.get("today"):
             flow_list = fund_flow_data["today"]
+            df = pd.DataFrame(flow_list)
+            df.rename(columns = {
+                "sector": '行业板块',
+                "change_pct": '行业-涨跌幅',
+                "main_net_inflow": '流入资金（亿元）',
+                "main_net_outflow": '流出资金（亿元）',
+                "net_inflow": '净额（亿元）',
+                "main_net_inflow_pct": '流入比率（净额/流入资金）',
+            }, inplace = True)
             
-            # 净流入前15
-            sorted_inflow = sorted(flow_list, key=lambda x: x["main_net_inflow"], reverse=True)
-            fund_flow_summary = f"""
-【板块资金流向】(更新时间: {fund_flow_data.get('update_time', 'N/A')})
+            df = df.sort_values(by="行业-涨跌幅", ascending=False)
+            found_csv = df.to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
 
-主力资金净流入 TOP15:
+            fund_flow_summary = f"""
+【板块资金流向】(CSV格式,更新时间: {fund_flow_data.get('update_time', 'N/A')})
+{found_csv}
 """
-            for idx, item in enumerate(sorted_inflow[:15], 1):
-                fund_flow_summary += f"{idx}. {item['sector']}: {item['main_net_inflow']:.2f}万 ({item['main_net_inflow_pct']:+.2f}%) | 涨跌: {item['change_pct']:+.2f}% | 超大单: {item['super_large_net_inflow']:.2f}万\n"
-            
-            # 净流出前10
-            sorted_outflow = sorted(flow_list, key=lambda x: x["main_net_inflow"])
-            fund_flow_summary += f"""
-主力资金净流出 TOP10:
-"""
-            for idx, item in enumerate(sorted_outflow[:10], 1):
-                fund_flow_summary += f"{idx}. {item['sector']}: {item['main_net_inflow']:.2f}万 ({item['main_net_inflow_pct']:+.2f}%) | 涨跌: {item['change_pct']:+.2f}%\n"
+
+#         # 构建北向资金数据
+#         north_summary = ""
+#         if north_flow_data:
+#             north_summary = f"""
+# 【北向资金】
+# 日期: {north_flow_data.get('date', 'N/A')}
+# 今日北向资金净流入: {north_flow_data.get('north_net_inflow', 0):.2f} 万元
+#   沪股通净流入: {north_flow_data.get('hgt_net_inflow', 0):.2f} 万元
+#   深股通净流入: {north_flow_data.get('sgt_net_inflow', 0):.2f} 万元
+# """
+#             if north_flow_data.get('history'):
+#                 north_summary += "\n近10日北向资金流向:\n"
+#                 for item in north_flow_data['history'][:10]:
+#                     north_summary += f"  {item['date']}: {item['net_inflow']:.2f}万\n"
         
-        # 构建北向资金数据
+         # 构建北向资金数据
         north_summary = ""
+         # 北向资金活跃前10股票
         if north_flow_data:
-            north_summary = f"""
-【北向资金】
-日期: {north_flow_data.get('date', 'N/A')}
-今日北向资金净流入: {north_flow_data.get('north_net_inflow', 0):.2f} 万元
-  沪股通净流入: {north_flow_data.get('hgt_net_inflow', 0):.2f} 万元
-  深股通净流入: {north_flow_data.get('sgt_net_inflow', 0):.2f} 万元
-"""
-            if north_flow_data.get('history'):
-                north_summary += "\n近10日北向资金流向:\n"
-                for item in north_flow_data['history'][:10]:
-                    north_summary += f"  {item['date']}: {item['net_inflow']:.2f}万\n"
+            north_top_active_stocks = north_flow_data["north_top_active_stocks"]
+            if north_top_active_stocks.get("success"):
+                data_date = north_top_active_stocks["数据日期"]
+                fgt_df = north_top_active_stocks["沪股通北向TOP10"]
+                sgt_df = north_top_active_stocks["深股通北向TOP10"]
+                fgt_csv = fgt_df.to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+                sgt_csv = sgt_df.to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+                north_summary = (f"""
+【北向资金活跃表现】
+{data_date} 沪股通北向资金活跃前10股票(CSV格式):
+{fgt_csv}
+
+{data_date} 深股通北向资金活跃前10股票(CSV格式):
+{sgt_csv}
+""")
         
         prompt = f"""
 你是一名资深的资金流向分析师，拥有15年的市场资金研究经验，擅长从资金流向中洞察主力意图和市场趋势。
@@ -348,6 +405,7 @@ class SectorStrategyAgents:
 请给出专业、深度的资金流向分析报告。
 """
         self.logger.debug(f"[智策智能体] 资金流向分析师分析提示:\n {prompt}")
+        utils_common.write_file(prompt, "logs/prompt/sector_strategy_analysis/fund_flow_analyst_agent_prompt.txt")
         
         messages = [
             {"role": "system", "content": "你是一名资深的资金流向分析师，擅长从资金数据中洞察主力意图和市场趋势。"},
@@ -356,6 +414,7 @@ class SectorStrategyAgents:
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
         self.logger.debug(f"[智策智能体] 资金流向分析师分析结果:\n {analysis}")
+        utils_common.write_file(analysis, "logs/prompt/sector_strategy_analysis/fund_flow_analyst_agent_result.txt")
         self.logger.info(" ✓ 资金流向分析师分析完成")
         
         return {
@@ -379,54 +438,62 @@ class SectorStrategyAgents:
         time.sleep(1)
         
         # 构建市场情绪指标
-        sentiment_summary = ""
-        if market_data:
-            sentiment_summary = f"""
-【市场情绪指标】
+        sentiment_summary = self._format_market_overview(market_data)
+        
+#         # 板块热度分析
+#         hot_sectors = ""
+#         if sectors_data:
+#             sorted_sectors = sorted(sectors_data.items(), key=lambda x: abs(x[1]["change_pct"]), reverse=True)
+#             hot_sectors = f"""
+# 【板块热度排行】(按涨跌幅绝对值排序)
 
-涨跌统计:
-  总股票数: {market_data.get('total_stocks', 0)}
-  上涨股票: {market_data.get('up_count', 0)} ({market_data.get('up_ratio', 0):.1f}%)
-  下跌股票: {market_data.get('down_count', 0)}
-  涨停数: {market_data.get('limit_up', 0)}
-  跌停数: {market_data.get('limit_down', 0)}
+# 最活跃板块 TOP10:
+# """
+#             for idx, (name, info) in enumerate(sorted_sectors[:10], 1):
+#                 hot_sectors += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {info['turnover']:.2f}% | 涨跌家数: {info['up_count']}/{info['down_count']}\n"
+        
+#         # 概念热度
+#         hot_concepts = ""
+#         if concepts_data:
+#             sorted_concepts = sorted(concepts_data.items(), key=lambda x: abs(x[1]["change_pct"]), reverse=True)
+#             hot_concepts = f"""
+# 【概念热度排行】
 
-大盘表现:
-"""
-            if market_data.get("sh_index"):
-                sh = market_data["sh_index"]
-                sentiment_summary += f"  上证指数: {sh['close']} ({sh['change_pct']:+.2f}%)\n"
-            if market_data.get("sz_index"):
-                sz = market_data["sz_index"]
-                sentiment_summary += f"  深证成指: {sz['close']} ({sz['change_pct']:+.2f}%)\n"
-            if market_data.get("cyb_index"):
-                cyb = market_data["cyb_index"]
-                sentiment_summary += f"  创业板指: {cyb['close']} ({cyb['change_pct']:+.2f}%)\n"
+# 最热概念 TOP10:
+# """
+#             for idx, (name, info) in enumerate(sorted_concepts[:10], 1):
+#                 hot_concepts += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {info['turnover']:.2f}%\n"
         
         # 板块热度分析
+        hot_concepts = ""
         hot_sectors = ""
         if sectors_data:
-            sorted_sectors = sorted(sectors_data.items(), key=lambda x: abs(x[1]["change_pct"]), reverse=True)
+            list_sectors = list(sectors_data.values())
+            df = pd.DataFrame(list_sectors)
+            df.rename(columns = {
+                "name": '行业板块',
+                "change_pct": '涨跌幅',
+                "total_volume": '总成交量（万手）',
+                "total_amount": '总成交额（亿元）',
+                "net_flow": '净流入（亿元）',
+                "up_count": '上涨家数',
+                "down_count": '下跌家数',
+                "top_stock": '领涨股',
+                "top_stock_price": '领涨股-最新价',
+                "top_stock_change": '领涨股-涨跌幅',
+            }, inplace = True)
+
+            df["涨跌幅绝对值"] = df["涨跌幅"].abs()
+            df = df.sort_values(by="涨跌幅绝对值", ascending=False)
+            # 去除无效的两列
+            df = df.drop(columns=["turnover", "total_market_cap"])
+
+            top15_csv = df.head(15).to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
             hot_sectors = f"""
 【板块热度排行】(按涨跌幅绝对值排序)
-
-最活跃板块 TOP10:
+最活跃板块前15名(CSV格式):
+{top15_csv}
 """
-            for idx, (name, info) in enumerate(sorted_sectors[:10], 1):
-                hot_sectors += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {info['turnover']:.2f}% | 涨跌家数: {info['up_count']}/{info['down_count']}\n"
-        
-        # 概念热度
-        hot_concepts = ""
-        if concepts_data:
-            sorted_concepts = sorted(concepts_data.items(), key=lambda x: abs(x[1]["change_pct"]), reverse=True)
-            hot_concepts = f"""
-【概念热度排行】
-
-最热概念 TOP10:
-"""
-            for idx, (name, info) in enumerate(sorted_concepts[:10], 1):
-                hot_concepts += f"{idx}. {name}: {info['change_pct']:+.2f}% | 换手率: {info['turnover']:.2f}%\n"
-        
         prompt = f"""
 你是一名资深的市场情绪分析师，拥有心理学和金融学双重背景，擅长从市场数据中解读投资者情绪和市场心理。
 
@@ -489,6 +556,7 @@ class SectorStrategyAgents:
 请给出专业、客观的市场情绪分析报告，避免主观臆测。
 """
         self.logger.debug(f"[智策智能体] 市场情绪解码员分析提示:\n {prompt}")
+        utils_common.write_file(prompt, "logs/prompt/sector_strategy_analysis/market_sentiment_decoder_agent_prompt.txt")
         
         messages = [
             {"role": "system", "content": "你是一名资深的市场情绪分析师，擅长从市场数据中解读投资者情绪和市场心理。"},
@@ -497,6 +565,7 @@ class SectorStrategyAgents:
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
         self.logger.debug(f"[智策智能体] 市场情绪解码员分析结果:\n {analysis}")
+        utils_common.write_file(analysis, "logs/prompt/sector_strategy_analysis/market_sentiment_decoder_agent_result.txt")
         self.logger.info(" ✓ 市场情绪解码员分析完成")
         
         return {
@@ -512,17 +581,38 @@ class SectorStrategyAgents:
         if not market_data:
             return "暂无市场数据"
         
-        text = ""
-        if market_data.get("sh_index"):
-            sh = market_data["sh_index"]
-            text += f"上证指数: {sh['close']} ({sh['change_pct']:+.2f}%)\n"
-        if market_data.get("sz_index"):
-            sz = market_data["sz_index"]
-            text += f"深证成指: {sz['close']} ({sz['change_pct']:+.2f}%)\n"
-        if market_data.get("total_stocks"):
-            text += f"涨跌统计: 上涨{market_data['up_count']}只({market_data['up_ratio']:.1f}%)，下跌{market_data['down_count']}只\n"
-        
-        return text
+        # 构建市场概况
+        market_summary = ""
+        if market_data:
+            market_summary = f"""
+【市场概况】
+时间: {market_data.get('timestamp', 'N/A')}
+大盘指数:
+"""
+            if market_data.get("sh_index"):
+                sh = market_data["sh_index"]
+                market_summary += f"  上证指数: {sh['close']} ({sh['change_pct']:+.2f}%)\n"
+            if market_data.get("sz_index"):
+                sz = market_data["sz_index"]
+                market_summary += f"  深证成指: {sz['close']} ({sz['change_pct']:+.2f}%)\n"
+            if market_data.get("cyb_index"):
+                cyb = market_data["cyb_index"]
+                market_summary += f"  创业板指: {cyb['close']} ({cyb['change_pct']:+.2f}%)\n"
+            if market_data.get("kcb_index"):
+                kcb = market_data["kcb_index"]
+                market_summary += f"  科创板指: {kcb['close']} ({kcb['change_pct']:+.2f}%)\n"
+            
+            if market_data.get("total_stocks"):
+                market_summary += f"""
+市场涨跌统计:
+  总股票数: {market_data['total_stocks']}
+  上涨: {market_data['up_count']} (占比{market_data['up_ratio']:.1f}%)
+  下跌: {market_data['down_count']}
+  平盘: {market_data['flat_count']}
+  涨停: {market_data['limit_up']} 
+  跌停: {market_data['limit_down']}
+"""
+        return market_summary
 
 
 # 测试函数

@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 from datetime import datetime, time
 import pytz
 import config
-
+import utils.common as common_utils
 
 class SmartMonitorDeepSeek:
     """A股智能盯盘 - DeepSeek AI决策引擎"""
@@ -27,6 +27,7 @@ class SmartMonitorDeepSeek:
             "Content-Type": "application/json"
         }
         self.logger = log_utils.get_logger(__name__)
+        self.logger.debug("A股智能盯盘 - DeepSeek客户端初始化完成")
 
     def is_trading_time(self) -> bool:
         """
@@ -140,7 +141,7 @@ class SmartMonitorDeepSeek:
             }
 
     def chat_completion(self, messages: List[Dict], model: str = None,
-                       temperature: float = 0.7, max_tokens: int = 2000) -> Dict:
+                       temperature: float = 0.7, max_tokens: int = 8000) -> Dict:
         """
         调用DeepSeek API
         
@@ -171,6 +172,7 @@ class SmartMonitorDeepSeek:
                 json=payload,
                 timeout=60
             )
+            self.logger.debug(f"请求参数：{payload}，响应状态码：{response.status_code}，响应内容：{response.text}")
             response.raise_for_status()
             return response.json()
         except Exception as e:
@@ -327,7 +329,9 @@ MACD金叉且柱状图持续放大，RSI 62处于健康区间。今日成交量�
 趋势向上，但考虑T+1规则，建议仓位控制在20%，止损位设在1568元（-5%），
 止盈目标1815元（+10%）。风险提示：如明日低开需谨慎..."
 """
-
+        self.logger.debug(f"A股分析系统提示词：{system_prompt}")
+        self.logger.debug(f"A股分析用户提示词：{prompt}")
+        common_utils.write_file(f"{system_prompt}\n{prompt}", f"logs/prompt/stock_{stock_code}_analysis_prompt.txt")
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt}
@@ -336,6 +340,15 @@ MACD金叉且柱状图持续放大，RSI 62处于健康区间。今日成交量�
         try:
             response = self.chat_completion(messages, temperature=0.3)
             ai_response = response['choices'][0]['message']['content']
+
+            # 处理 reasoner 模型的响应
+            thinking_content = ""
+            message = response.choices[0].message
+            # 检查是否有推理内容 response.choices[0].message
+            if hasattr(message, 'reasoning_content') and message.reasoning_content:
+                thinking_content = f"【推理过程开始】\n{message.reasoning_content}\n【推理过程结束】\n"
+            self.logger.debug(f"AI决策响应： {thinking_content}{ai_response}")
+            common_utils.write_file(f"{thinking_content}{ai_response}", f"logs/prompt/stock_{stock_code}_analysis_response.txt")
             
             # 解析JSON决策
             decision = self._parse_decision(ai_response)

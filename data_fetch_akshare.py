@@ -33,6 +33,7 @@ class AkshareDataFetcher:
         self.days = 30  # 获取最近30个交易日
         self.logger.info("AkShare 免费客户端初始化成功")
 
+    # ===股票代码转换 腾讯数据源===
     def _convert_to_tx_code(self, symbol):
         """
         将6位股票代码转换为腾讯数据源格式（带 sh/sz 前缀）
@@ -54,7 +55,8 @@ class AkshareDataFetcher:
             return f"bj{symbol}"
         else:
             return f"sz{symbol}"
-
+    
+    # ===股票历史数据获取 腾讯数据源===
     def get_stock_history_data_akshare(self, symbol, start_date=None, end_date=None, adjust='qfq'):
         """
         使用akshare数据源，获取股票历史数据
@@ -141,6 +143,7 @@ class AkshareDataFetcher:
         return None
 
     ## 基本不可用（第一次可用）  ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response')))
+    # ===股票基本信息获取 东方财富数据源===
     def get_stock_basic_info_akshare(self, symbol):
         """
         使用akshare数据源，获取股票基本信息
@@ -217,6 +220,7 @@ class AkshareDataFetcher:
 
         return info
 
+    # ===股票实时信息获取 新浪财经数据源===
     def get_stock_realtime_info_sina(self, symbol):
         """
         使用新浪财经数据源，获取股票实时信息
@@ -275,6 +279,7 @@ class AkshareDataFetcher:
         return info
 
     # 可用，但是太慢，全市场的快照实时行情数据
+    # ===股票实时行情获取 东方财富数据源===
     def get_realtime_quotes_akshare(self, symbol):
         """
         获取实时行情数据（akshare）
@@ -316,6 +321,7 @@ class AkshareDataFetcher:
         return quotes
 
     # 可用
+    # ===个股资金流向获取 东方财富数据源===
     def get_individual_fund_flow_akshare(self, symbol, market):
         """获取个股资金流向数据（akshare）"""
         df = None
@@ -342,8 +348,8 @@ class AkshareDataFetcher:
                     self.logger.info(f"[Akshare] {delay}s 后重试...")
                     time.sleep(delay)
         return df
-
-    # 个股资金流向数据
+    
+    # ===个股资金流向获取 新浪财经数据源===
     def get_money_flow_sina(self, code: str, page=1, num=60):
         """
         code: 600xxx / 000xxx
@@ -399,6 +405,7 @@ class AkshareDataFetcher:
         self.logger.debug(f"[Sina-新浪财经] 获取到 {symbol} {len(df)} 条资金流向数据:\n{df}")
         return df
 
+    # ===股票财务数据获取 新浪财经数据源===
     def get_financial_data_akshare(self, symbol, report_type='income'):
         """
         获取财务数据（akshare）
@@ -440,7 +447,7 @@ class AkshareDataFetcher:
                     time.sleep(delay)
         return df
 
-    # 获取百度股市通-A股-财务报表-估值数据
+    # ===股票估值数据获取-A股-财务报表-估值数据 百度股市通===
     def get_valuation_value_akshare(self, symbol, indicator="总市值", period="近一年"):
         """
         获取百度股市通-A股-财务报表-估值数据（akshare）
@@ -469,7 +476,7 @@ class AkshareDataFetcher:
                     time.sleep(delay)
         return df
 
-    # 获取财务摘要（综合浓缩指标）
+    # ===获取财务摘要（综合浓缩指标）-同花顺===
     def stock_financial_abstract_ths(self, symbol, indicator="按报告期"):
         """
         获取财务摘要（综合浓缩指标）（akshare）
@@ -487,7 +494,7 @@ class AkshareDataFetcher:
         
         return financial_abstract_df
     
-    # 获取资产负债表
+    # ===获取资产负债表-同花顺===
     def stock_financial_debt_ths(self, symbol, indicator="按报告期"):
         """
         获取资产负债表（akshare）
@@ -505,7 +512,7 @@ class AkshareDataFetcher:
         
         return balance_sheet_df
 
-    # 获取利润表
+    # ===获取利润表-同花顺===
     def stock_financial_benefit_ths(self, symbol, indicator="按报告期"):
         """
         获取利润表（akshare）
@@ -523,7 +530,7 @@ class AkshareDataFetcher:
         
         return profit_loss_df
 
-    # 获取现金流量表
+    # ===获取现金流量表-同花顺===
     def stock_financial_cash_ths(self, symbol, indicator="按报告期"):
         """
         获取现金流量表（akshare）
@@ -541,7 +548,8 @@ class AkshareDataFetcher:
         
         return cashflow_df
 
-    #  获取主要财务指标 不推荐量化，缺失关键选股指标：净利润同比、ROE、毛利率、PE、总股本、流通股本、扣非净利润。
+    # ===获取主要财务指标-新浪财经===
+    # 不推荐量化，缺失关键选股指标：净利润同比、ROE、毛利率、PE、总股本、流通股本、扣非净利润。
     def stock_financial_abstract_sina(self, symbol):
         """
         获取主要财务指标（新浪财经-财务报表-关键指标）
@@ -558,7 +566,7 @@ class AkshareDataFetcher:
         
         return financial_abstract
 
-    # 获取大盘情绪指标
+    # ===获取大盘情绪指标-乐咕乐股网===
     def stock_market_activity(self):
         """
         获取大盘情绪指标（akshare）
@@ -588,7 +596,7 @@ class AkshareDataFetcher:
         
         return market_sentiment_df
 
-    # 涨停数据
+    # ===获取涨停数据-东方财富===
     def stock_limit_up_data(self, date_str=""):
         """
         获取大盘涨停家数（akshare）
@@ -614,7 +622,7 @@ class AkshareDataFetcher:
         
         return limit_up_df
 
-    # 跌停数据
+    # ===获取跌停数据-东方财富===
     def stock_limit_down_data(self, date_str=""):
         """
         获取大盘跌停家数（akshare）
@@ -640,7 +648,7 @@ class AkshareDataFetcher:
         return limit_down_df
 
 
-    # 融资融券标的信息（深市）
+    # ===获取融资融券标的信息（深市）深圳证券交易所===
     def stock_margin_trading_data_szse(self, date_str=""):
         """
         获取融资融券标的信息（akshare）
@@ -663,7 +671,7 @@ class AkshareDataFetcher:
         
         return margin_trading_df
     
-    # 融资融券标的信息（沪市）
+    # ===获取融资融券标的信息（沪市）上海证券交易所===
     def stock_margin_trading_data_sh(self, date_str=""):
         """
         获取融资融券标的信息（沪市）
@@ -691,8 +699,7 @@ class AkshareDataFetcher:
         
         return margin_trading_df
     
-
-    # 上海证券交易所-融资融券数据-融资融券明细（沪市）
+    # ===获取融资融券明细（沪市）上海证券交易所===
     def stock_margin_detail_data_sh(self, date_str=""):
         """
         获取上海证券交易所-融资融券数据-融资融券明细（沪市）
@@ -716,7 +723,7 @@ class AkshareDataFetcher:
         
         return margin_trading_df
     
-    # 深圳证券交易所-融资融券数据-融资融券明细（深市）
+    # ===获取融资融券明细（深市）深圳证券交易所===
     def stock_margin_detail_data_sz(self, date_str=""):
         """
         获取深圳证券交易所-融资融券数据-融资融券明细（深市）
@@ -741,7 +748,7 @@ class AkshareDataFetcher:
         
         return margin_trading_df
 
-    # 深圳证券交易所-融资融券汇总（深市）
+    # ===获取融资融券汇总（深市）深圳证券交易所===
     def stock_margin_szse(self, date_str=""):
         """
         获取深圳证券交易所-融资融券汇总（深市）
@@ -780,7 +787,7 @@ class AkshareDataFetcher:
         
         return margin_trading_df
 
-    # 个股新闻
+    # ===获取个股新闻-东方财富===
     def get_stock_news_from_em(self, symbol):
         """
         获取股票的新闻数据（东方财富）
@@ -804,7 +811,7 @@ class AkshareDataFetcher:
 
         return df
 
-    # 新浪财经新闻
+    # ===获取全球财经快讯-新浪财经===
     def get_stock_global_news_from_sina(self):
         """
         新浪财经-全球财经快讯
@@ -827,7 +834,7 @@ class AkshareDataFetcher:
         
         return df
 
-    # 财联社电报（不可用）
+    # ===获取财联社电报-不可用===
     def get_stock_global_news_from_cls(self):
         """
         财联社-全球财经快讯
@@ -847,7 +854,7 @@ class AkshareDataFetcher:
         
         return df
 
-    # 同花顺财经
+    # ===获取全球财经快讯-同花顺===
     def get_stock_global_news_from_ths(self):
         """
         同花顺-全球财经快讯

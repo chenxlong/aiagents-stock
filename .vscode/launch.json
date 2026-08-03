@@ -6,6 +6,7 @@
     "configurations": [
         {
             "name": "Python Debugger: Current File",
+            "justMyCode": false,
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",

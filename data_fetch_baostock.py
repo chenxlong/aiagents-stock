@@ -72,7 +72,8 @@ class BaostockDataFetcher:
                 self.logger.error(f"❌ 登出baostock系统失败: {result.error_msg}")
         
         return self.is_logged
-        
+    
+    # ===转换股票代码-baostock格式===
     def convert_to_baostock_code(self, symbol):
         """
         将6位股票代码转换为baostock格式（带市场后缀）
@@ -99,7 +100,8 @@ class BaostockDataFetcher:
         else:
             # 默认深圳
             return f"sz.{symbol}"
-            
+    
+    # ===获取股票历史数据-baostock===
     def get_stock_history_data_baostock(self, symbol, start_date=None, end_date=None, adjust='qfq'):
         """
         使用baostock数据源，获取股票历史数据
@@ -220,6 +222,7 @@ class BaostockDataFetcher:
         
         return None
 
+    # ===获取股票基本信息-baostock===
     def get_stock_basic_info_baostock(self, symbol):
         """
         使用baostock数据源，获取股票基本信息
@@ -250,8 +253,6 @@ class BaostockDataFetcher:
             # 获取单只股票的基本信息
             rs_basic = bs.query_stock_basic(code=ts_code)
             # 也可以通过名称查询：rs = bs.query_stock_basic(code_name="浦发银行")
-            time.sleep(1)
-
             data_list_basic = []
             while (rs_basic.error_code == '0') & rs_basic.next():
                 # 获取一条记录，将记录合并在一起
@@ -260,9 +261,10 @@ class BaostockDataFetcher:
             df_basic = pd.DataFrame(data_list_basic, columns=rs_basic.fields)
             self.logger.info(f"[Baostock] 获取到基本信息:\n {df_basic} ")
 
+            time.sleep(1)
+
             # 获取股票行业信息
             rs_industry = bs.query_stock_industry(code=ts_code)
-            time.sleep(1)
             data_list_industry = []
             while (rs_industry.error_code == '0') & rs_industry.next():
                 # 获取一条记录，将记录合并在一起
@@ -270,10 +272,14 @@ class BaostockDataFetcher:
             df_industry = pd.DataFrame(data_list_industry, columns=rs_industry.fields)
             self.logger.info(f"[Baostock] 获取到行业信息:\n {df_industry} ")
 
+            time.sleep(1)
+
             # 查询季频估值指标盈利能力（股票股本信息） todo 访问太频繁，会报错（应该登陆一次，访问一次？）
             start_year = time.strftime("%Y", time.localtime())
             result_profit_df = self.get_stock_equity_baostock(ts_code, start_year=start_year)
             self.logger.info(f"[Baostock] 获取到季频估值指标盈利能力:\n {result_profit_df} ")
+
+            time.sleep(0.5)
             
             if df_basic is not None and not df_basic.empty:
                 info['name'] = df_basic.iloc[0]['code_name']
@@ -299,7 +305,8 @@ class BaostockDataFetcher:
             self.logger.error(f"[Baostock] 完整错误堆栈:\n{traceback.format_exc()}")
 
         return info
-
+    
+    # ===获取股票季频盈利能力-baostock===
     def get_stock_equity_baostock(self, symbol: str, start_year: str = "2026") -> dict:
         """查询季频估值指标盈利能力 自动回溯季度/年份，确保拿到股本数据，不会返回空"""
         code = self.convert_to_baostock_code(symbol)
@@ -336,6 +343,7 @@ class BaostockDataFetcher:
         self.logger.error(f"{code} 近{max_back_year}年未查询到盈利财报，无法获取股本")
         return None
 
+    # ===获取股票实时数据，不可用，没有实时数据接口-baostock===
     def get_stock_realtime_data_baostock(self, symbol):
         """
         使用baostock数据源，获取股票实时数据

@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 class SmartMonitorTDXDataFetcher:
     """TDX数据获取器"""
     
-    def __init__(self, base_url: str = "http://192.168.1.222:8181"):
+    def __init__(self, base_url: str = "http://127.0.0.1:8080"):
         """
         初始化TDX数据获取器
         
@@ -52,6 +52,7 @@ class SmartMonitorTDXDataFetcher:
                 self.logger.warning(f"TDX未返回股票 {stock_code} 的行情数据")
                 return None
             
+            self.logger.debug(f"TDX获取行情原始数据: {data_list}")
             # 获取第一条数据
             quote_data = data_list[0]
             k_data = quote_data.get('K', {})
@@ -82,7 +83,6 @@ class SmartMonitorTDXDataFetcher:
             
             # 获取股票名称（需要调用搜索接口）
             stock_name = self._get_stock_name(stock_code)
-            
             self.logger.info(f"✅ TDX成功获取 {stock_code} ({stock_name}) 实时行情")
             
             return {
@@ -187,18 +187,18 @@ class SmartMonitorTDXDataFetcher:
                 })
             
             df = pd.DataFrame(rows)
-            
-            # TDX返回的数据是倒序（最新的在前），需要反转
-            df = df.iloc[::-1].reset_index(drop=True)
+
+            # 转换日期格式
+            df['日期'] = pd.to_datetime(df['日期'])
+            # df.set_index('日期', inplace=True)
+            # 按日期排序 升序
+            df = df.sort_values(by='日期', ascending=True)
             
             # 只保留最近limit条
             if len(df) > limit:
                 df = df.tail(limit).reset_index(drop=True)
             
-            # 转换日期格式
-            df['日期'] = pd.to_datetime(df['日期'])
-            
-            self.logger.info(f"✅ TDX成功获取 {stock_code} K线数据，共{len(df)}条")
+            self.logger.info(f"✅ TDX成功获取 {stock_code} K线数据，共{len(df)}条:\n{df}")
             
             return df
             
@@ -413,9 +413,10 @@ class SmartMonitorTDXDataFetcher:
 
 if __name__ == '__main__':
     # 测试代码
+    log_utils.setup_root_logger()
     
     # 使用默认地址测试
-    fetcher = SmartMonitorTDXDataFetcher(base_url="http://192.168.1.222:8181")
+    fetcher = SmartMonitorTDXDataFetcher(base_url="http://127.0.0.1:8080")
     
     # 测试平安银行(000001)
     print("测试获取平安银行(000001)数据...")

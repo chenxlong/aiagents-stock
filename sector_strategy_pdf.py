@@ -13,6 +13,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from datetime import datetime
 import os
 import tempfile
+import log_utils
 
 
 class SectorStrategyPDFGenerator:
@@ -20,7 +21,9 @@ class SectorStrategyPDFGenerator:
     
     def __init__(self):
         """初始化PDF生成器"""
+        self.logger = log_utils.get_logger(__name__)
         self.setup_fonts()
+        self.logger.debug("PDF生成器初始化完成")
         
     def setup_fonts(self):
         """设置中文字体"""
@@ -37,17 +40,17 @@ class SectorStrategyPDFGenerator:
                     try:
                         pdfmetrics.registerFont(TTFont('ChineseFont', font_path))
                         self.chinese_font = 'ChineseFont'
-                        print(f"[PDF] 成功加载字体: {font_path}")
+                        self.logger.info(f"[PDF] 成功加载字体: {font_path}")
                         return
                     except:
                         continue
             
             # 如果都失败，使用默认字体
             self.chinese_font = 'Helvetica'
-            print("[PDF] 警告: 未找到中文字体，使用默认字体")
+            self.logger.info("[PDF] 警告: 未找到中文字体，使用默认字体")
             
         except Exception as e:
-            print(f"[PDF] 字体设置失败: {e}")
+            self.logger.error(f"[PDF] 字体设置失败: {e}")
             self.chinese_font = 'Helvetica'
     
     def generate_pdf(self, result_data: dict, output_path: str = None) -> str:
@@ -103,11 +106,11 @@ class SectorStrategyPDFGenerator:
             # 生成PDF
             doc.build(story)
             
-            print(f"[PDF] 报告生成成功: {output_path}")
+            self.logger.info(f"[PDF] 报告生成成功: {output_path}")
             return output_path
             
         except Exception as e:
-            print(f"[PDF] 生成失败: {e}")
+            self.logger.error(f"[PDF] 生成失败: {e}")
             import traceback
             traceback.print_exc()
             raise

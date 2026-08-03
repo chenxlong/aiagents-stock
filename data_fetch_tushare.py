@@ -35,6 +35,7 @@ class TushareDataFetcher:
         else:
             self.logger.error("ℹ️ 未配置Tushare Token，Tushare数据源初始化失败")
     
+    # ===转换股票代码为tushare格式===
     def convert_to_ts_code(self, symbol):
         """
         将6位股票代码转换为tushare格式（带市场后缀）
@@ -62,6 +63,7 @@ class TushareDataFetcher:
             # 默认深圳
             return f"{symbol}.SZ"
     
+    # ===tushare格式转换为股票纯数字代码===
     def convert_from_ts_code(self, ts_code):
         """
         将tushare格式代码转换为6位代码
@@ -76,7 +78,7 @@ class TushareDataFetcher:
             return ts_code.split('.')[0]
         return ts_code
     
-    ## 是不复权的历史数据
+    # ===获取不复权的历史数据（免费版本，不支持复权）===
     def get_stock_history_data_tushare(self, symbol, start_date=None, end_date=None, adjust='qfq'):
         """
         使用tushare数据源，获取股票历史数据

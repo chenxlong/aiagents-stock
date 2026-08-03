@@ -12,7 +12,7 @@ import json
 import pandas as pd
 import log_utils
 import config
-
+import utils.common as utils_common
 
 class SectorStrategyEngine:
     """板块策略综合研判引擎"""
@@ -192,7 +192,6 @@ class SectorStrategyEngine:
                 except Exception as fetch_e:
                     self.logger.warning(f"[智策引擎] 获取保存报告详情失败: {fetch_e}")
             except Exception as e:
-                self.logger.warning(f" ✓ 保存分析报告失败: {e}")
                 self.logger.error(f"[智策引擎] 保存分析报告失败: {e}")
             
             self.logger.info("=" * 60)
@@ -219,6 +218,11 @@ class SectorStrategyEngine:
         sector_analysis = agents_results.get("sector", {}).get("analysis", "")
         fund_analysis = agents_results.get("fund", {}).get("analysis", "")
         sentiment_analysis = agents_results.get("sentiment", {}).get("analysis", "")
+
+        _thinking, macro_analysis = utils_common.split_thinking_and_result_content(macro_analysis)
+        _thinking, sector_analysis = utils_common.split_thinking_and_result_content(sector_analysis)
+        _thinking, fund_analysis = utils_common.split_thinking_and_result_content(fund_analysis)
+        _thinking, sentiment_analysis = utils_common.split_thinking_and_result_content(sentiment_analysis)
         
         prompt = f"""
 你是智策系统的首席策略官，现在需要综合四位专业分析师的报告，形成全面的市场和板块研判。
@@ -266,31 +270,63 @@ class SectorStrategyEngine:
 请给出专业、全面的综合研判报告，体现多维度分析的价值。
 """
         self.logger.info(f"首席策略官，综合研判提示: {prompt}")
+        utils_common.write_file(prompt, "logs/prompt/sector_strategy_analysis/conduct_comprehensive_discussion_prompt.txt")
+        
         messages = [
             {"role": "system", "content": "你是智策系统的首席策略官，需要整合多维度分析，形成全面的投资策略。"},
             {"role": "user", "content": prompt}
         ]
         
-        report = self.deepseek_client.call_api(messages, max_tokens=8000)
-        self.logger.info(f"综合研判结果: {report}")
+        analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
+        self.logger.info(f"综合研判结果:\n{analysis}")
+        utils_common.write_file(analysis, "logs/prompt/sector_strategy_analysis/conduct_comprehensive_discussion_result.txt")
         self.logger.info(" ✓ 综合研判完成")
-        return report
+        return analysis
     
     def _generate_final_predictions(self, comprehensive_report: str, agents_results: Dict, raw_data: Dict) -> Dict:
         """
         生成最终预测 - 板块多空/轮动/热度
         """
         self.logger.info("  📊 生成板块多空/轮动/热度预测...")
+        _thinking, comprehensive_report = utils_common.split_thinking_and_result_content(comprehensive_report)
         time.sleep(2)
         
+        # # 提取板块列表用于预测
+        # sectors_list = []
+        # if raw_data.get("sectors"):
+        #     sorted_sectors = sorted(raw_data["sectors"].items(), key=lambda x: abs(x[1]["change_pct"]), reverse=True)
+        #     sectors_list = [name for name, _ in sorted_sectors[:30]]  # 取前30个活跃板块
+        
+        # sectors_str = ", ".join(sectors_list) if sectors_list else "未知板块"
+
         # 提取板块列表用于预测
-        sectors_list = []
-        if raw_data.get("sectors"):
-            sorted_sectors = sorted(raw_data["sectors"].items(), key=lambda x: abs(x[1]["change_pct"]), reverse=True)
-            sectors_list = [name for name, _ in sorted_sectors[:30]]  # 取前30个活跃板块
-        
-        sectors_str = ", ".join(sectors_list) if sectors_list else "未知板块"
-        
+        sectors_str = ""
+        sectors_data = raw_data.get("sectors", {})
+        if sectors_data:
+            list_sectors = list(sectors_data.values())
+            df = pd.DataFrame(list_sectors)
+            df.rename(columns = {
+                "name": '行业板块',
+                "change_pct": '涨跌幅',
+                "total_volume": '总成交量（万手）',
+                "total_amount": '总成交额（亿元）',
+                "net_flow": '净流入（亿元）',
+                "up_count": '上涨家数',
+                "down_count": '下跌家数',
+                "top_stock": '领涨股',
+                "top_stock_price": '领涨股-最新价',
+                "top_stock_change": '领涨股-涨跌幅',
+            }, inplace = True)
+
+            df["涨跌幅绝对值"] = df["涨跌幅"].abs()
+            df = df.sort_values(by="涨跌幅绝对值", ascending=False)
+            # 去除无效的两列
+            df = df.drop(columns=["turnover", "total_market_cap"])
+            sector_list = df["行业板块"].head(30).tolist()
+            sectors_str = ", ".join(sector_list) if sector_list else "未知板块"
+        else:
+            sectors_str = "未知板块"
+
         prompt = f"""
 基于前期的深度分析和综合研判，现在需要生成最终的板块预测报告。
 
@@ -391,7 +427,8 @@ class SectorStrategyEngine:
 3. 给出的建议要具体、可操作
 4. 预测要客观、理性，避免过度乐观或悲观
 """
-        self.logger.info(f"智策系统最终预测提示: {prompt}")
+        self.logger.info(f"智策系统最终预测提示:\n{prompt}")
+        utils_common.write_file(prompt, "logs/prompt/sector_strategy_analysis/generate_final_predictions_prompt.txt")
         
         messages = [
             {"role": "system", "content": "你是智策系统的预测引擎，需要生成专业、精准的板块预测报告。"},
@@ -399,9 +436,9 @@ class SectorStrategyEngine:
         ]
         
         response = self.deepseek_client.call_api(messages, temperature=0.3, max_tokens=8000)
-        self.logger.info(f"智策系统最终预测结果: {response}")
-        
-        # 尝试解析JSON
+        self.logger.info(f"智策系统最终预测结果:\n{response}")
+        utils_common.write_file(response, "logs/prompt/sector_strategy_analysis/generate_final_predictions_result.txt")
+        # 尝试解析JSON格式
         try:
             import re
             json_match = re.search(r'\{.*\}', response, re.DOTALL)

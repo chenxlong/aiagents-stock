@@ -12,6 +12,179 @@ import log_utils
 
 warnings.filterwarnings('ignore')
 
+import akshare as ak
+seat_mapping = {
+    # ====================== 【一线顶级游资】（市场关注度最高，复盘重点） ======================
+    # 章盟主（章建平）核心席位【新旧券商名称全覆盖，解决国泰海通更名】
+    "国泰君安证券股份有限公司上海江苏路证券营业部": {"nick": "章盟主", "style": "趋势大票、主线龙头波段"},
+    "国泰海通证券股份有限公司上海长宁区江苏路证券营业部": {"nick": "章盟主", "style": "趋势大票、主线龙头波段"},
+    "国泰海通证券股份有限公司上海浦东新区海阳西路证券营业部": {"nick": "章盟主", "style": "趋势大票、主线龙头波段"},
+    "国泰君安证券股份有限公司宁波彩虹北路证券营业部": {"nick": "章盟主", "style": "趋势大票、主线龙头波段"},
+    "中信证券股份有限公司杭州四季路证券营业部": {"nick": "章盟主", "style": "趋势大票、主线龙头波段"},
+    # 作手新一【新旧名称】
+    "国泰君安证券股份有限公司南京太平南路证券营业部": {"nick": "作手新一", "style": "高位连板、人气高标接力"},
+    "国泰海通证券股份有限公司南京太平南路证券营业部": {"nick": "作手新一", "style": "高位连板、人气高标接力"},
+    # 赵老哥（赵强）
+    "中国银河证券股份有限公司绍兴证券营业部": {"nick": "赵老哥", "style": "龙头战法，二板定龙头"},
+    "浙商证券股份有限公司绍兴解放北路证券营业部": {"nick": "赵老哥", "style": "龙头战法，二板定龙头"},
+    # 方新侠
+    "中信证券股份有限公司西安朱雀大街证券营业部": {"nick": "方新侠", "style": "重仓主线趋势龙头"},
+    "兴业证券股份有限公司陕西分公司": {"nick": "方新侠", "style": "重仓主线趋势龙头"},
+    # 炒股养家
+    "华鑫证券有限责任公司上海宛平南路证券营业部": {"nick": "炒股养家", "style": "通道、潜伏、一字板"},
+    # 孙哥(溧阳路)
+    "中信证券股份有限公司上海溧阳路证券营业部": {"nick": "孙哥(溧阳路)", "style": "妖股短线、快进快出"},
+    # 欢乐海岸
+    "华泰证券股份有限公司深圳益田路荣超商务中心证券营业部": {"nick": "欢乐海岸", "style": "龙头锁仓，情绪核心"},
+    # 佛山无影脚（佛山系）
+    "光大证券股份有限公司佛山绿景路证券营业部": {"nick": "佛山无影脚", "style": "首板、撬板、隔日出货"},
+    # 上塘路（砸盘王）
+    "财通证券股份有限公司杭州上塘路证券营业部": {"nick": "上塘路", "style": "首板/连板，次日经常核按钮"},
+    # 陈小群
+    "中国银河证券股份有限公司大连黄河路证券营业部": {"nick": "陈小群", "style": "情绪连板龙头"},
+    # 宁波桑田路
+    "国盛证券有限责任公司宁波桑田路证券营业部": {"nick": "桑田路", "style": "情绪套利、低位挖掘"},
+    # 成都系（职业炒手）【新旧名称】
+    "国泰君安证券股份有限公司成都北一环路证券营业部": {"nick": "成都系", "style": "首板挖掘，板块轮动"},
+    "国泰海通证券股份有限公司成都北一环路证券营业部": {"nick": "成都系", "style": "首板挖掘，板块轮动"},
+
+    # ====================== 【二线活跃游资】（中等体量地方性资金） ======================
+    "财通证券股份有限公司温岭中华路证券营业部": {"nick": "温岭解放北游资", "style": "首板挖掘"},
+    "中信建投证券股份有限公司杭州庆春路证券营业部": {"nick": "庆春路", "style": "趋势中线"},
+    "东吴证券股份有限公司苏州相城大道证券营业部": {"nick": "相城大道游资", "style": "连板"},
+    "湘财证券股份有限公司上海陆家嘴证券营业部": {"nick": "陆家嘴游资", "style": "短线轮动"},
+    "华泰证券股份有限公司上海武定路证券营业部": {"nick": "武定路游资", "style": "低位潜伏"},
+    "国泰君安证券股份有限公司上海新闸路证券营业部": {"nick": "新闸路游资", "style": "题材套利"},
+    "兴业证券股份有限公司厦门湖里大道证券营业部": {"nick": "湖里大道游资", "style": "趋势票"},
+
+    # ====================== 【老牌帮派游资（温州帮 / 山东帮 核心旗舰席位）】 ======================
+    # 温州帮 代表席位（历史知名，近年马甲分散，仅作参考）
+    "中国银河证券股份有限公司温州锦绣路证券营业部": {"nick": "温州帮", "style": "短线控盘、A字出货，警惕闪崩"},
+    "华鑫证券有限责任公司乐清双雁路证券营业部": {"nick": "温州帮", "style": "短线控盘、A字出货，警惕闪崩"},
+    "天风证券股份有限公司武汉八一路证券营业部": {"nick": "温州帮", "style": "短线控盘、A字出货，警惕闪崩"},
+    "华泰证券股份有限公司郑州经三路证券营业部": {"nick": "温州帮", "style": "短线控盘、A字出货，警惕闪崩"},
+    # 山东帮 代表席位（历史主打次新股，多席位联动）
+    "国海证券股份有限公司济南济安街证券营业部": {"nick": "山东帮", "style": "次新股联动拉升，多席位协同"},
+    "国海证券股份有限公司济宁邹城市兴石街证券营业部": {"nick": "山东帮", "style": "次新股联动拉升，多席位协同"},
+    "中泰证券股份有限公司荣成石岛黄海中路证券营业部": {"nick": "山东帮", "style": "次新股联动拉升，多席位协同"},
+
+    # ====================== 【散户席位】拉萨天团（东财散户大本营） ======================
+    "东方财富证券股份有限公司拉萨团结路第一证券营业部": {"nick": "拉萨天团", "style": "散户合力，波动巨大"},
+    "东方财富证券股份有限公司拉萨团结路第二证券营业部": {"nick": "拉萨天团", "style": "散户合力，波动巨大"},
+    "东方财富证券股份有限公司拉萨东环路第一证券营业部": {"nick": "拉萨天团", "style": "散户合力，波动巨大"},
+    "东方财富证券股份有限公司拉萨东环路第二证券营业部": {"nick": "拉萨天团", "style": "散户合力，波动巨大"},
+
+    # ====================== 【量化席位 · 量化打板 / 高频程序化】 ======================
+    # 华鑫系：A股老牌通道量化，主打短线打板
+    "华鑫证券有限责任公司上海分公司": {"nick": "量化打板", "style": "程序化打板、隔日套利"},
+    "华鑫证券有限责任公司上海茅台路证券营业部": {"nick": "量化打板", "style": "高频量化打板"},
+    "华鑫证券有限责任公司上海淞滨路证券营业部": {"nick": "量化打板", "style": "高频量化交易"},
+    # 开源西安军团：近几年最强批量首板量化集群
+    "开源证券股份有限公司西安西大街证券营业部": {"nick": "量化打板", "style": "批量首板量化，隔日卖出为主"},
+    "开源证券股份有限公司西安太华路证券营业部": {"nick": "量化打板", "style": "批量首板量化，隔日卖出为主"},
+    # 券商总部：自营、中型量化私募，多因子、日内T，不一定打板
+    "华泰证券股份有限公司上海总部": {"nick": "华泰量化总部", "style": "程序化量化、日内T+0"},
+    "中信证券股份有限公司上海总部": {"nick": "中信量化总部", "style": "量化趋势交易"},
+    "招商证券股份有限公司上海总部": {"nick": "招商量化总部", "style": "算法套利、日内交易"},
+    "国泰海通证券股份有限公司总部": {"nick": "国泰海通量化总部", "style": "高频量化、多因子策略"},
+    # 中金通道：大型头部量化私募专用
+    "中国国际金融股份有限公司上海分公司": {"nick": "量化基金", "style": "头部量化私募、外资算法交易"},
+
+    # ====================== 【外资量化席位】 ======================
+    "瑞银证券有限责任公司上海花园石桥路证券营业部": {"nick": "外资量化", "style": "北向外资、高频对冲交易"},
+}
+
+def get_capital_tag(seat_name: str):
+    """
+    根据营业部名称匹配游资昵称与风格
+    :param seat_name: 原始龙虎榜营业部全称
+    :return: nick, style
+    """
+    if seat_name in seat_mapping:
+        info = seat_mapping[seat_name]
+        return info["nick"], info["style"]
+    
+    # 关键词兜底，应对券商更名，防止漏识别
+    if "上海长宁区江苏路证券营业部" in seat_name or "上海江苏路证券营业部" in seat_name:
+        return "章盟主", "趋势大票、主线龙头波段"
+    if "南京太平南路证券营业部" in seat_name:
+        return "作手新一", "高位连板、人气高标接力"
+    if "成都北一环路证券营业部" in seat_name:
+        return "成都系", "首板挖掘，板块轮动"
+
+    # 通用特殊席位分类
+    if "机构专用" in seat_name:
+        return "机构专用", "机构资金（公募/私募/社保）"
+    if "东方财富证券股份有限公司" in seat_name:
+        return "东财散户营业部", "散户"
+    if "沪股通专用" in seat_name or "深股通专用" in seat_name:
+        return "北向资金", "外资资金"
+    return "未知营业部", "待识别"
+
+def fetch_lhb_all_seat(trade_date: str, sleep_sec=1.3):
+    """
+    采集单日龙虎榜全部席位+自动游资标签
+    :param trade_date: 日期 格式 20260729
+    :param sleep_sec: 请求间隔，防止限流
+    :return: 全市场龙虎席位明细df
+    """
+    # 日期转换为YYYYMMDD格式
+    trade_date = trade_date.replace("-", "")
+    try:
+        # 第一步：获取当日上榜个股清单
+        stock_list_df = ak.stock_lhb_detail_em(
+            start_date=trade_date,
+            end_date=trade_date
+        )
+    except Exception as e:
+        logger.error(f"获取上榜个股清单失败：{e}")
+        return pd.DataFrame()
+
+        # =========【新增：构建代码→股票名称映射字典】=========
+    code_name_map = dict(zip(stock_list_df["代码"], stock_list_df["名称"]))
+    codes = stock_list_df["代码"].unique()
+    logger.info(f"当日龙虎榜个股数量：{len(codes)}")
+
+    all_data = []
+    for code in codes:
+        try:
+            stock_name = code_name_map[code]  # 根据代码取出股票名称
+            # 买入前五席位
+            buy_df = ak.stock_lhb_stock_detail_em(
+                symbol=code, date=trade_date, flag="买入"
+            )
+            buy_df["股票代码"] = code
+            buy_df["股票名称"] = stock_name
+            buy_df["上榜日期"] = trade_date
+            buy_df["买卖方向"] = "买入前五"
+            all_data.append(buy_df)
+
+            # 卖出前五席位
+            sell_df = ak.stock_lhb_stock_detail_em(
+                symbol=code, date=trade_date, flag="卖出"
+            )
+            sell_df["股票代码"] = code
+            sell_df["股票名称"] = stock_name
+            sell_df["上榜日期"] = trade_date
+            sell_df["买卖方向"] = "卖出前五"
+            all_data.append(sell_df)
+            # 限流延时必不可少
+            time.sleep(sleep_sec)
+        except Exception as err:
+            logger.error(f"{code} 获取席位异常: {str(err)}")
+            continue
+
+    if not all_data:
+        return pd.DataFrame()
+
+    result_df = pd.concat(all_data, ignore_index=True)
+    # 增加游资标签
+    result_df.rename(columns={"交易营业部名称": "营业部名称"}, inplace=True)
+    result_df[["游资名称", "资金风格"]] = result_df["营业部名称"].apply(
+        lambda x: pd.Series(get_capital_tag(x))
+    )
+    
+    return result_df
 
 class LonghubangDataFetcher:
     """龙虎榜数据获取类"""
@@ -72,7 +245,7 @@ class LonghubangDataFetcher:
         
         return None
     
-    def get_longhubang_data(self, date):
+    def get_longhubang_data_old(self, date):
         """
         获取指定日期的龙虎榜数据
         
@@ -96,6 +269,30 @@ class LonghubangDataFetcher:
         else:
             self.logger.error(f" ✗ 未获取到数据")
             return None
+
+    def get_longhubang_data(self, date):
+        """
+        获取指定日期的龙虎榜数据
+        
+        Args:
+            date: 日期，格式为 YYYY-MM-DD，如 "2023-03-21"
+            
+        Returns:
+            dict: 龙虎榜数据
+        """
+        self.logger.info(f"[智瞰龙虎] 获取 {date} 的龙虎榜数据...")
+        
+        df_data = fetch_lhb_all_seat(date)
+        if df_data.empty:
+            self.logger.error(f" ✗ 未获取到数据")
+            return None
+        
+        self.logger.debug(f" ✓ 成功获取 {len(df_data)} 条龙虎榜记录,数据:\n{df_data}")
+
+        # 转换为字典列表
+        data_list = df_data.to_dict(orient='records')
+        result = {"data": data_list}
+        return result
     
     def get_longhubang_data_range(self, start_date, end_date):
         """
@@ -322,6 +519,17 @@ if __name__ == "__main__":
     print("=" * 60)
     print("测试智瞰龙虎数据采集模块")
     print("=" * 60)
+
+    log_utils.setup_root_logger()
+    logger = log_utils.get_logger()
+
+    # # 计算耗时
+    # start_time = time.time()
+    # df_lhb = fetch_lhb_all_seat(trade_date="20260730")
+    # end_time = time.time()
+    # logger.info(f"[智瞰龙虎] 获取到 {len(df_lhb)} 条龙虎榜数据，耗时：{end_time - start_time} 秒")
+    # logger.info(f"[智瞰龙虎] 获取到 {len(df_lhb)} 条龙虎榜数据:\n{df_lhb}")
+    # df_lhb.to_csv("logs/龙虎榜席位_20260730.csv", index=False, encoding="utf-8-sig")
     
     fetcher = LonghubangDataFetcher()
     

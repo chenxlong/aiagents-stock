@@ -668,6 +668,7 @@ class DataSourceManager:
                     news_items.append(item)
         return news_items
 
+    # 市场指数历史数据
     def get_stock_market_index_history_data(self, market_index_prefix, symbol, start_date=None, end_date=None, adjust='qfq'):
         """
         获取股票市场指数历史数据（优先baostock，失败时使用akshare，失败时使用tushare）
@@ -701,7 +702,7 @@ class DataSourceManager:
                 return df
         
         # 数据源3，尝试tickflow
-        tf_code = f"{market_index_prefix}.{symbol.upper()}"
+        tf_code = f"{symbol}.{market_index_prefix.upper()}"
         df = self.tickflow_fetcher.get_stock_history_data(tf_code, start_date, end_date, adjust)
         if df is not None:
             return df
@@ -713,7 +714,7 @@ class DataSourceManager:
             return df
         
         # 数据源2，尝试tushare
-        tushare_code = f"{market_index_prefix}.{symbol.upper()}"
+        tushare_code = f"{symbol}.{market_index_prefix.upper()}"
         df = self.tushare_fetcher.get_stock_history_data_tushare(tushare_code, start_date, end_date, adjust)
         if df is not None:
             return df
