@@ -224,6 +224,8 @@ class LonghubangDataFetcher:
             return None
         
         self.logger.debug(f" ✓ 成功获取 {len(df_data)} 条龙虎榜记录,数据:\n{df_data}")
+        # 保存到CSV文件
+        df_data.to_csv(f"logs/龙虎榜席位_{date}.csv", index=False, encoding="utf-8-sig")
 
         # 转换为字典列表
         data_list = df_data.to_dict(orient='records')
@@ -317,7 +319,7 @@ class LonghubangDataFetcher:
         numeric_columns = ['买入金额', '卖出金额', '净流入金额']
         for col in numeric_columns:
             if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         
         # 排序
         if '净流入金额' in df.columns:
@@ -363,10 +365,10 @@ class LonghubangDataFetcher:
         df = df.rename(columns=column_mapping)
         
         # 转换数据类型
-        numeric_columns = ['买入金额', '卖出金额', '净流入金额']
+        numeric_columns = ['买入金额', '卖出金额', '净流入金额', '买入金额-占总成交比例', '卖出金额-占总成交比例']
         for col in numeric_columns:
             if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         
         # 排序
         if '净流入金额' in df.columns:
@@ -468,7 +470,10 @@ class LonghubangDataFetcher:
                 list(summary['top_youzi'].items()),
                 columns=['游资名称', '净流入金额']
             )
-            text_parts.append("\n【活跃游资 TOP10】（CSV格式，金额单位：万元）")
+            top_youzi_df.sort_values(by='净流入金额', ascending=False, inplace=True)
+            top_youzi_df.insert(0, '排名', range(1, len(top_youzi_df) + 1))
+
+            text_parts.append("\n【活跃游资 TOP10】（CSV格式，金额单位：元）")
             # 转换为CSV格式字符串
             top_youzi_csv = top_youzi_df.to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
             text_parts.append(top_youzi_csv)
@@ -476,7 +481,11 @@ class LonghubangDataFetcher:
         # Top股票
         if summary.get('top_stocks'):
             top_stocks_df = pd.DataFrame(summary['top_stocks'])
-            text_parts.append("\n【资金净流入 TOP20股票】（CSV格式，金额单位：万元）")
+            top_stocks_df.rename(columns={'code': '股票代码', 'name': '股票名称', 'net_inflow': '净流入金额'}, inplace=True)
+            top_stocks_df.sort_values(by='净流入金额', ascending=False, inplace=True)
+            top_stocks_df.insert(0, '排名', range(1, len(top_stocks_df) + 1))
+
+            text_parts.append("\n【资金净流入 TOP20股票】（CSV格式，金额单位：元）")
              # 转换为CSV格式字符串
             top_stocks_csv = top_stocks_df.to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
             text_parts.append(top_stocks_csv)
@@ -488,7 +497,7 @@ class LonghubangDataFetcher:
                 text_parts.append(f"{idx}. {concept}: {count} 次")
         
         # 详细交易记录（前50条）
-        text_parts.append("\n【详细交易记录 TOP50】（CSV格式，金额单位：万元）")
+        text_parts.append("\n【详细交易记录 TOP50】（CSV格式，金额单位：元）")
         # 转换为CSV格式字符串
         top_records_csv = df.head(50).to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
         text_parts.append(top_records_csv)
@@ -525,6 +534,7 @@ class LonghubangDataFetcher:
         for code in codes:
             try:
                 stock_name = code_name_map[code]  # 根据代码取出股票名称
+                # 获取该股当日全部榜单（含三日+多条单日）
                 # 买入前五席位
                 buy_df = ak.stock_lhb_stock_detail_em(
                     symbol=code, date=trade_date, flag="买入"
@@ -559,8 +569,23 @@ class LonghubangDataFetcher:
         result_df[["游资名称", "资金风格"]] = result_df["营业部名称"].apply(
             lambda x: pd.Series(get_capital_tag(x))
         )
+
+        # ==========核心清洗：区分单日/三日榜单，去重重复单日数据=========
+        # 标记榜单周期
+        def mark_cycle_type(title):
+            if "连续三个交易日" in title:
+                return "三日累计"
+            else:
+                return "单日当日"
         
-        return result_df
+        result_df["榜单周期"] = result_df["类型"].apply(mark_cycle_type)
+
+         # 1、提取纯单日数据，去除重复的涨幅/换手率两套相同数据
+        day_df = result_df[result_df["榜单周期"] == "单日当日"].copy()
+        # 同股票、同营业部、同买卖金额视为重复，只保留1份
+        day_df = day_df.drop_duplicates(subset=["股票代码","营业部名称","买入金额","卖出金额"])
+        
+        return day_df
 
 
 # 测试函数
@@ -583,7 +608,7 @@ if __name__ == "__main__":
     # df_lhb.to_csv("logs/龙虎榜席位_20260803.csv", index=False, encoding="utf-8-sig")
     
     # 测试获取单日数据
-    date = (datetime.now() - timedelta(days=0)).strftime('%Y-%m-%d')
+    date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
     result = fetcher.get_longhubang_data(date)
     
     if result and result.get('data'):
