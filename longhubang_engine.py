@@ -222,22 +222,32 @@ class LonghubangEngine:
             推荐股票列表
         """
         recommended = []
+
+        # 解析JSON响应
+        import re
         
-        # 从摘要中获取TOP股票作为基础
-        if summary.get('top_stocks'):
-            for idx, stock in enumerate(summary['top_stocks'][:10], 1):
-                recommended.append({
-                    'rank': idx,
-                    'code': stock['code'],
-                    'name': stock['name'],
-                    'net_inflow': stock['net_inflow'],
-                    'reason': f"资金净流入 {stock['net_inflow']:,.2f} 元",
-                    'confidence': '中',
-                    'buy_price': '待定',
-                    'target_price': '待定',
-                    'stop_loss': '待定',
-                    'hold_period': '短线'
-                })
+        # 提取JSON部分
+        json_match = re.search(r'```json\s*(\{.*?\})\s*```', chief_analysis, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(1)
+            result = json.loads(json_str)
+            recommended = result.get('recommendations', [])
+        else:
+            # 从摘要中获取TOP股票作为基础
+            if summary.get('top_stocks'):
+                for idx, stock in enumerate(summary['top_stocks'][:10], 1):
+                    recommended.append({
+                        'rank': idx,
+                        'code': stock['code'],
+                        'name': stock['name'],
+                        'net_inflow': stock['net_inflow'],
+                        'reason': f"只看资金净流入股票，没有分析其他指标，资金净流入 {stock['net_inflow']:,.2f} 元",
+                        'confidence': '中',
+                        'buy_price': '未确定',
+                        'target_price': '未确定',
+                        'stop_loss': '未确定',
+                        'hold_period': '短线'
+                    })
         
         return recommended
     

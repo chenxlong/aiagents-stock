@@ -16,14 +16,14 @@ class LonghubangScoring:
         """初始化评分系统"""
         # 顶级游资名单（根据市场知名度和历史战绩）
         self.top_youzi = [
-            '赵老哥', '章盟主', '92科比', '瑞鹤仙', '小鳄鱼',
-            '养家心法', '欢乐海岸', '古北路', '成都系', '佛山系',
-            '方新侠', '乔帮主', '淮海路', '东方财富',
-            '国信深圳', '华泰深圳', '中信杭州', '招商深圳'
+            '章盟主', '赵老哥', '作手新一', '小鳄鱼', '方新侠', "炒股养家", '孙哥(溧阳路)', '欢乐海岸', '佛山系', "陈小群", '成都系', '上塘路',
+            '92科比', '瑞鹤仙', '养家心法', '古北路', '乔帮主', '淮海路', '东方财富', '国信深圳', '华泰深圳', '中信杭州', '招商深圳'
         ]
         
         # 知名游资（次一级）
         self.famous_youzi = [
+            "温岭解放北游资", "庆春路", "相城大道游资", "陆家嘴游资", "武定路游资", "新闸路游资", "湖里大道游资", 
+            "温州帮", "山东帮", "拉萨天团", "量化打板", "华泰量化总部", "中信量化总部", "招商量化总部", "国泰海通量化总部", "量化基金", "外资量化",
             '深股通', '沪股通', '北向资金',
             '中金公司', '中信证券', '国泰君安', '海通证券',
             '广发证券', '华泰证券', '招商证券'
@@ -96,7 +96,7 @@ class LonghubangScoring:
             
             if buy_amount > 0:
                 youzi_name = record.get('游资名称', '') or record.get('yzmc', '')
-                yingye_bu = record.get('营业部', '') or record.get('yyb', '')
+                yingye_bu = record.get('营业部名称', '') or record.get('营业部', '') or record.get('yyb', '')
                 buyers.append({
                     'name': youzi_name,
                     'yingye_bu': yingye_bu,
@@ -246,7 +246,7 @@ class LonghubangScoring:
                 continue
             
             youzi_name = record.get('游资名称', '') or record.get('yzmc', '')
-            yingye_bu = record.get('营业部', '') or record.get('yyb', '')
+            yingye_bu = record.get('营业部名称', '') or record.get('营业部', '') or record.get('yyb', '')
             
             # 检查是否是机构
             if any(keyword in youzi_name or keyword in yingye_bu 
@@ -429,7 +429,7 @@ class LonghubangScoring:
             # 统计机构数量
             institution_count = sum(1 for r in records 
                                   if any(kw in (r.get('游资名称', '') or r.get('yzmc', '')) or 
-                                        kw in (r.get('营业部', '') or r.get('yyb', ''))
+                                        kw in (r.get('营业部名称', '') or r.get('营业部', '') or r.get('yyb', ''))
                                         for kw in self.institution_keywords))
             
             # 获取概念
@@ -495,7 +495,7 @@ class LonghubangScoring:
                 continue
             
             youzi_name = record.get('游资名称', '') or record.get('yzmc', '')
-            yingye_bu = record.get('营业部', '') or record.get('yyb', '')
+            yingye_bu = record.get('营业部名称', '') or record.get('营业部', '') or record.get('yyb', '')
             
             if any(top in youzi_name or top in yingye_bu for top in self.top_youzi):
                 count += 1

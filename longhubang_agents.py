@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 import time
 import config
 import log_utils
-
+import utils.common as utils_common
 
 class LonghubangAgents:
     """龙虎榜AI分析师集合"""
@@ -100,12 +100,14 @@ class LonghubangAgents:
 请给出专业、实战性强的游资行为分析报告。
 """
         self.logger.debug(f"游资行为分析提示: {prompt}")
+        utils_common.write_file(prompt, "logs/prompt/longhubang_analysis/youzi_behavior_analyst_prompt.txt")
         messages = [
             {"role": "system", "content": "你是一名资深的游资研究专家，擅长从龙虎榜数据中洞察游资意图和操作手法。"},
             {"role": "user", "content": prompt}
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
+        utils_common.write_file(analysis, "logs/longhubang_analysis/youzi_behavior_analyst_result.txt")
         
         self.logger.debug(f" ✓ 游资行为分析师分析完成, 结果:\n{analysis}")
         
@@ -201,12 +203,15 @@ class LonghubangAgents:
 请给出专业、实战、具有可操作性的个股潜力分析报告。务必重点分析次日大概率上涨的股票！
 """
         self.logger.debug(f"个股潜力分析提示: {prompt}")
+        utils_common.write_file(prompt, "logs/prompt/longhubang_analysis/stock_potential_analyst_prompt.txt")
+
         messages = [
             {"role": "system", "content": "你是一名资深的个股研究专家和短线交易高手，擅长从龙虎榜中挖掘短期爆发股。"},
             {"role": "user", "content": prompt}
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
+        utils_common.write_file(analysis, "logs/longhubang_analysis/stock_potential_analyst_result.txt")
         
         self.logger.debug(f" ✓ 个股潜力分析师分析完成, 结果:\n{analysis}")
         
@@ -301,13 +306,16 @@ class LonghubangAgents:
 请给出专业、前瞻性强的题材追踪分析报告。
 """
         self.logger.debug(f"题材追踪分析提示: {prompt}")
+        utils_common.write_file(prompt, "logs/prompt/longhubang_analysis/theme_tracker_analyst_prompt.txt")
+        
         messages = [
             {"role": "system", "content": "你是一名资深的题材研究专家，擅长从龙虎榜数据中捕捉题材热点和投资机会。"},
             {"role": "user", "content": prompt}
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
-        
+        utils_common.write_file(analysis, "logs/longhubang_analysis/theme_tracker_analyst_result.txt")
+
         self.logger.debug(f" ✓ 题材追踪分析师分析完成, 结果:\n{analysis}")
         
         return {
@@ -396,12 +404,15 @@ class LonghubangAgents:
 请给出专业、严谨、保守的风险控制报告，宁可错过，不可做错。
 """
         self.logger.debug(f"风险控制分析提示: {prompt}")
+        utils_common.write_file(prompt, "logs/prompt/longhubang_analysis/risk_control_specialist_prompt.txt")
+        
         messages = [
             {"role": "system", "content": "你是一名资深的风险控制专家，擅长识别龙虎榜中的风险信号和资金陷阱。"},
             {"role": "user", "content": prompt}
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
+        utils_common.write_file(analysis, "logs/longhubang_analysis/risk_control_specialist_result.txt")
         
         self.logger.debug(f" ✓ 风险控制专家分析完成, 结果:\n{analysis}")
         
@@ -432,7 +443,8 @@ class LonghubangAgents:
             analyses_text += f"【{analysis['agent_name']}】分析报告\n"
             analyses_text += f"职责: {analysis['agent_role']}\n"
             analyses_text += f"{'='*60}\n"
-            analyses_text += analysis['analysis'] + "\n"
+            _thinking, result = utils_common.split_thinking_and_result_content(analysis['analysis'])
+            analyses_text += result + "\n"
         
         prompt = f"""
 你是一名资深的首席投资策略师，拥有CFA、FRM等专业资格，具有25年的市场实战经验和卓越的综合分析能力。
@@ -466,6 +478,26 @@ class LonghubangAgents:
      * 止损价位
      * 持有周期建议
    - 按推荐优先级排序（第一只为最看好）
+   - 返回格式：必须严格按照JSON格式输出，JSON内容要包含在 ```json 和 ``` 片段中。每只推荐股票为一个字典对象，包含以上所有字段，放在一个recommendations数组中。
+     * 返回例：
+     ```json
+     {{
+       "recommendations": [
+         {{
+           "rank": 1,
+           "code": "代码",
+           "name": "股票名称",
+           "reason": "推荐理由",
+           "confidence": "确定性评级",
+           "buy_price": "买入价位区间",
+           "target_price": "目标价位（预期涨幅）",
+           "stop_loss": "止损价位",
+           "hold_period": "短线"
+         }},
+         ... 其他股票推荐对象
+       ]
+     }}
+     ```
 
 3. **高风险警示股票（TOP3-5）**
    - 综合识别3-5只高风险股票
@@ -489,14 +521,18 @@ class LonghubangAgents:
    - 给出应对预案
 
 请给出专业、全面、可执行的首席策略师综合报告。报告要有明确的结论和可操作性！
+
 """
         self.logger.debug(f"首席策略师分析提示: {prompt}")
+        utils_common.write_file(prompt, "logs/prompt/longhubang_analysis/chief_strategist_prompt.txt")
+        
         messages = [
             {"role": "system", "content": "你是一名资深的首席投资策略师，擅长综合多维度分析，给出最优投资决策。"},
             {"role": "user", "content": prompt}
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
+        utils_common.write_file(analysis, "logs/longhubang_analysis/chief_strategist_result.txt")
         
         self.logger.debug(f" ✓ 首席策略师分析完成, 结果:\n{analysis}")
         

@@ -27,6 +27,8 @@ seat_mapping = {
     # 赵老哥（赵强）
     "中国银河证券股份有限公司绍兴证券营业部": {"nick": "赵老哥", "style": "龙头战法，二板定龙头"},
     "浙商证券股份有限公司绍兴解放北路证券营业部": {"nick": "赵老哥", "style": "龙头战法，二板定龙头"},
+    # 小鳄鱼
+    "国泰君安证券股份有限公司南京太平南路证券营业部": {"nick": "小鳄鱼", "style":"主线龙头、AI大票打板"},
     # 方新侠
     "中信证券股份有限公司西安朱雀大街证券营业部": {"nick": "方新侠", "style": "重仓主线趋势龙头"},
     "兴业证券股份有限公司陕西分公司": {"nick": "方新侠", "style": "重仓主线趋势龙头"},
@@ -37,7 +39,8 @@ seat_mapping = {
     # 欢乐海岸
     "华泰证券股份有限公司深圳益田路荣超商务中心证券营业部": {"nick": "欢乐海岸", "style": "龙头锁仓，情绪核心"},
     # 佛山无影脚（佛山系）
-    "光大证券股份有限公司佛山绿景路证券营业部": {"nick": "佛山无影脚", "style": "首板、撬板、隔日出货"},
+    "光大证券股份有限公司佛山绿景路证券营业部": {"nick": "佛山系", "style": "首板、撬板、隔日出货"},
+    "光大证券股份有限公司佛山季华六路证券营业部": {"nick": "佛山系", "style":"首板、撬板、隔日出货"},
     # 上塘路（砸盘王）
     "财通证券股份有限公司杭州上塘路证券营业部": {"nick": "上塘路", "style": "首板/连板，次日经常核按钮"},
     # 陈小群
@@ -47,6 +50,7 @@ seat_mapping = {
     # 成都系（职业炒手）【新旧名称】
     "国泰君安证券股份有限公司成都北一环路证券营业部": {"nick": "成都系", "style": "首板挖掘，板块轮动"},
     "国泰海通证券股份有限公司成都北一环路证券营业部": {"nick": "成都系", "style": "首板挖掘，板块轮动"},
+    "华泰证券股份有限公司成都南一环路第二证券营业部": {"nick": "成都系", "style": "首板挖掘，板块轮动"},
 
     # ====================== 【二线活跃游资】（中等体量地方性资金） ======================
     "财通证券股份有限公司温岭中华路证券营业部": {"nick": "温岭解放北游资", "style": "首板挖掘"},
@@ -348,8 +352,8 @@ class LonghubangDataFetcher:
         column_mapping = {
             '游资名称': '游资名称',
             '资金风格': '资金风格',
-            '营业部名称': '营业部',
-            '类型': '榜单类型',
+            '营业部名称': '营业部名称',
+            '类型': '类型',
             '股票代码': '股票代码',
             '股票名称': '股票名称',
             '买入金额': '买入金额',
@@ -357,7 +361,7 @@ class LonghubangDataFetcher:
             '卖出金额': '卖出金额',
             '卖出金额-占总成交比例': '卖出金额-占总成交比例',
             '净额': '净流入金额',
-            '上榜日期': '日期',
+            '上榜日期': '上榜日期',
             '买卖方向': '买卖方向',
             '概念': '概念'
         }
@@ -370,7 +374,7 @@ class LonghubangDataFetcher:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         
-        # 排序
+        # 排序（沪股通/深股通 被拆分的买榜行、卖榜行，这个排序，实际无意义）
         if '净流入金额' in df.columns:
             df = df.sort_values('净流入金额', ascending=False)
         
@@ -498,8 +502,13 @@ class LonghubangDataFetcher:
         
         # 详细交易记录（前50条）
         text_parts.append("\n【详细交易记录 TOP50】（CSV格式，金额单位：元）")
+
+        df = self.merge_buy_sell_rows(df)
+        self.logger.debug(f"[智瞰龙虎] 合并龙虎榜同一个股票下：沪股通/深股通 被拆分的买榜行、卖榜行:\n{df}")
+        df = df.sort_values('席位净额', ascending=False)
+        df.insert(0, '排名', range(1, len(df) + 1))
         # 转换为CSV格式字符串
-        top_records_csv = df.head(50).to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
+        top_records_csv = df.head(100).to_csv(index=False, encoding='utf-8-sig').replace('\r\n', '\n').strip()
         text_parts.append(top_records_csv)
 
         over_view = "\n".join(text_parts)
@@ -587,6 +596,29 @@ class LonghubangDataFetcher:
         
         return day_df
 
+    def merge_buy_sell_rows(self, lhb_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        合并龙虎榜同一个股票下：沪股通/深股通 被拆分的买榜行、卖榜行
+        普通营业部、多条机构专用保持多条，不强行合并
+        lhb_df：来自 day_df / three_day_df
+        返回：每条【股票+营业部】一行，总买入、总卖出、净额
+        """
+        agg_df = lhb_df.groupby(
+            ["营业部名称", "榜单周期", "上榜日期", "类型", "游资名称", "资金风格", "股票代码", "股票名称"]
+        ).agg(
+            总买入=("买入金额", "sum"),
+            总卖出=("卖出金额", "sum"),
+        ).reset_index()
+
+        agg_df["席位净额"] = agg_df["总买入"] - agg_df["总卖出"]
+        # 净额占比，如果有个股总成交额字段
+        if "个股总成交额" in lhb_df.columns:
+            amount_map = dict(zip(lhb_df["股票代码"], lhb_df["个股总成交额"]))
+            agg_df["个股总成交额"] = agg_df["股票代码"].map(amount_map)
+            agg_df["净额占成交额%"] = (agg_df["席位净额"] / agg_df["个股总成交额"] * 100).round(3)
+
+        return agg_df
+
 
 # 测试函数
 if __name__ == "__main__":
@@ -609,6 +641,7 @@ if __name__ == "__main__":
     
     # 测试获取单日数据
     date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    date = "20260803"
     result = fetcher.get_longhubang_data(date)
     
     if result and result.get('data'):
