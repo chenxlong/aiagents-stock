@@ -501,7 +501,7 @@ class LonghubangDataFetcher:
                 text_parts.append(f"{idx}. {concept}: {count} 次")
         
         # 详细交易记录（前50条）
-        text_parts.append("\n【详细交易记录 TOP50】（CSV格式，金额单位：元）")
+        text_parts.append("\n【详细交易记录 TOP100】（CSV格式，金额单位：元）")
 
         df = self.merge_buy_sell_rows(df)
         self.logger.debug(f"[智瞰龙虎] 合并龙虎榜同一个股票下：沪股通/深股通 被拆分的买榜行、卖榜行:\n{df}")

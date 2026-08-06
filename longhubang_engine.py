@@ -12,6 +12,9 @@ from datetime import datetime, timedelta
 import time
 import log_utils
 import config
+import re
+import json
+import utils.common as utils_common
 
 
 class LonghubangEngine:
@@ -224,10 +227,9 @@ class LonghubangEngine:
         recommended = []
 
         # 解析JSON响应
-        import re
-        
+        _thinking, response_content = utils_common.split_thinking_and_result_content(chief_analysis)
         # 提取JSON部分
-        json_match = re.search(r'```json\s*(\{.*?\})\s*```', chief_analysis, re.DOTALL)
+        json_match = re.search(r'```json\s*(\{.*?\})\s*```', response_content, re.DOTALL)
         if json_match:
             json_str = json_match.group(1)
             result = json.loads(json_str)

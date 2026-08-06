@@ -38,10 +38,7 @@ class LonghubangAgents:
             for idx, (name, amount) in enumerate(list(summary['top_youzi'].items())[:15], 1):
                 youzi_info += f"{idx}. {name}: 净流入 {amount:,.2f} 元\n"
         
-        prompt = f"""
-你是一名资深的游资研究专家，拥有10年以上的龙虎榜数据分析经验，深谙各路游资的操作风格和盈利模式。
-
-【龙虎榜数据概况】
+        """【龙虎榜数据概况】
 记录总数: {summary.get('total_records', 0)}
 涉及股票: {summary.get('total_stocks', 0)} 只
 涉及游资: {summary.get('total_youzi', 0)} 个
@@ -49,9 +46,12 @@ class LonghubangAgents:
 总卖出金额: {summary.get('total_sell_amount', 0):,.2f} 元
 净流入金额: {summary.get('total_net_inflow', 0):,.2f} 元
 
-{youzi_info}
+{youzi_info}"""
+        
+        prompt = f"""
+你是一名资深的游资研究专家，拥有10年以上的龙虎榜数据分析经验，深谙各路游资的操作风格和盈利模式。
 
-{longhubang_data[:8000]}
+{longhubang_data}
 
 请基于以上龙虎榜数据，进行深入的游资行为分析：
 
@@ -107,7 +107,7 @@ class LonghubangAgents:
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
-        utils_common.write_file(analysis, "logs/longhubang_analysis/youzi_behavior_analyst_result.txt")
+        utils_common.write_file(analysis, "logs/prompt/longhubang_analysis/youzi_behavior_analyst_result.txt")
         
         self.logger.debug(f" ✓ 游资行为分析师分析完成, 结果:\n{analysis}")
         
@@ -138,17 +138,18 @@ class LonghubangAgents:
             for idx, stock in enumerate(summary['top_stocks'][:20], 1):
                 stock_info += f"{idx}. {stock['name']}({stock['code']}): 净流入 {stock['net_inflow']:,.2f} 元\n"
         
-        prompt = f"""
-你是一名资深的个股研究专家和短线交易高手，精通技术分析和资金分析，擅长从龙虎榜中挖掘短期爆发股。
-
+        """
 【龙虎榜数据概况】
 记录总数: {summary.get('total_records', 0)}
 涉及股票: {summary.get('total_stocks', 0)} 只
 涉及游资: {summary.get('total_youzi', 0)} 个
 
-{stock_info}
+{stock_info}"""
 
-{longhubang_data[:8000]}
+        prompt = f"""
+你是一名资深的个股研究专家和短线交易高手，精通技术分析和资金分析，擅长从龙虎榜中挖掘短期爆发股。
+
+{longhubang_data}
 
 请基于以上龙虎榜数据，进行深入的个股潜力分析：
 
@@ -211,7 +212,7 @@ class LonghubangAgents:
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
-        utils_common.write_file(analysis, "logs/longhubang_analysis/stock_potential_analyst_result.txt")
+        utils_common.write_file(analysis, "logs/prompt/longhubang_analysis/stock_potential_analyst_result.txt")
         
         self.logger.debug(f" ✓ 个股潜力分析师分析完成, 结果:\n{analysis}")
         
@@ -242,16 +243,18 @@ class LonghubangAgents:
             for idx, (concept, count) in enumerate(list(summary['hot_concepts'].items())[:20], 1):
                 concept_info += f"{idx}. {concept}: 出现 {count} 次\n"
         
-        prompt = f"""
-你是一名资深的题材研究专家，拥有敏锐的市场嗅觉，擅长从龙虎榜数据中捕捉题材热点和板块轮动机会。
-
+        """
 【龙虎榜数据概况】
 记录总数: {summary.get('total_records', 0)}
 涉及股票: {summary.get('total_stocks', 0)} 只
 
 {concept_info}
+"""
 
-{longhubang_data[:8000]}
+        prompt = f"""
+你是一名资深的题材研究专家，拥有敏锐的市场嗅觉，擅长从龙虎榜数据中捕捉题材热点和板块轮动机会。
+
+{longhubang_data}
 
 请基于以上龙虎榜数据，进行深入的题材追踪分析：
 
@@ -314,7 +317,7 @@ class LonghubangAgents:
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
-        utils_common.write_file(analysis, "logs/longhubang_analysis/theme_tracker_analyst_result.txt")
+        utils_common.write_file(analysis, "logs/prompt/longhubang_analysis/theme_tracker_analyst_result.txt")
 
         self.logger.debug(f" ✓ 题材追踪分析师分析完成, 结果:\n{analysis}")
         
@@ -337,19 +340,20 @@ class LonghubangAgents:
         """
         self.logger.info("⚠️ 风险控制专家正在分析...")
         time.sleep(1)
-        
-        prompt = f"""
-你是一名资深的风险控制专家和反向思维大师，拥有20年的市场风险管理经验，擅长识别龙虎榜中的风险信号和资金陷阱。
 
-【龙虎榜数据概况】
+        """【龙虎榜数据概况】
 记录总数: {summary.get('total_records', 0)}
 涉及股票: {summary.get('total_stocks', 0)} 只
 涉及游资: {summary.get('total_youzi', 0)} 个
 总买入金额: {summary.get('total_buy_amount', 0):,.2f} 元
 总卖出金额: {summary.get('total_sell_amount', 0):,.2f} 元
 净流入金额: {summary.get('total_net_inflow', 0):,.2f} 元
+"""
+        
+        prompt = f"""
+你是一名资深的风险控制专家和反向思维大师，拥有20年的市场风险管理经验，擅长识别龙虎榜中的风险信号和资金陷阱。
 
-{longhubang_data[:8000]}
+{longhubang_data}
 
 请基于以上龙虎榜数据，进行全面的风险分析：
 
@@ -412,7 +416,7 @@ class LonghubangAgents:
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
-        utils_common.write_file(analysis, "logs/longhubang_analysis/risk_control_specialist_result.txt")
+        utils_common.write_file(analysis, "logs/prompt/longhubang_analysis/risk_control_specialist_result.txt")
         
         self.logger.debug(f" ✓ 风险控制专家分析完成, 结果:\n{analysis}")
         
@@ -457,7 +461,7 @@ class LonghubangAgents:
 
 以下是各位分析师的详细分析报告：
 
-{analyses_text[:15000]}
+{analyses_text}
 
 请作为首席策略师，综合以上所有分析，给出最终的投资策略报告：
 
@@ -477,14 +481,13 @@ class LonghubangAgents:
      * 目标价位（预期涨幅）
      * 止损价位
      * 持有周期建议
-   - 按推荐优先级排序（第一只为最看好）
-   - 返回格式：必须严格按照JSON格式输出，JSON内容要包含在 ```json 和 ``` 片段中。每只推荐股票为一个字典对象，包含以上所有字段，放在一个recommendations数组中。
+   - 返回格式：必须严格按照JSON格式输出，JSON内容要包含在 ```json 和 ``` 片段中。每只推荐股票为一个字典对象，包含以上所有字段，放在一个recommendations数组中，按推荐优先级排序（第一只为最看好）。
      * 返回例：
      ```json
      {{
        "recommendations": [
          {{
-           "rank": 1,
+           "rank": "排序号",
            "code": "代码",
            "name": "股票名称",
            "reason": "推荐理由",
@@ -532,7 +535,7 @@ class LonghubangAgents:
         ]
         
         analysis = self.deepseek_client.call_api(messages, max_tokens=8000)
-        utils_common.write_file(analysis, "logs/longhubang_analysis/chief_strategist_result.txt")
+        utils_common.write_file(analysis, "logs/prompt/longhubang_analysis/chief_strategist_result.txt")
         
         self.logger.debug(f" ✓ 首席策略师分析完成, 结果:\n{analysis}")
         
