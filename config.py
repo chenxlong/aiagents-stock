@@ -31,3 +31,8 @@ TDX_CONFIG = {
     'enabled': os.getenv("TDX_ENABLED", "false").lower() == "true",
     'base_url': os.getenv("TDX_BASE_URL", "http://192.168.1.222:8181"),
 }
+
+# 登录配置
+LOGIN_PASSWORD = os.getenv("LOGIN_PASSWORD", "")
+# 密码哈希(可选: 如果你想直接存哈希值, 设置 LOGIN_PASSWORD_HASH 即可)
+LOGIN_PASSWORD_HASH = os.getenv("LOGIN_PASSWORD_HASH", "6ca22759630c9417eb2dc7ce45ffbd9707ebeeb1eb428bfd78ff78f01e314e8d")

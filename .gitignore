@@ -12,3 +12,5 @@
 /.cursor
 /openspec
 TradEnv/
+# 登录锁定状态文件
+.auth_lock.json

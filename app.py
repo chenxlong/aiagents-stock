@@ -15,6 +15,8 @@ import time
 import base64
 import config
 
+from auth import check_auth, render_login_page, render_user_info
+
 from stock_data_fetcher import StockDataFetcher
 from ai_agents import StockAnalysisAgents
 from pdf_generator import display_pdf_export_section
@@ -34,8 +36,29 @@ st.set_page_config(
     page_title="多智能体股票分析系统",
     page_icon="📈",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': None,
+    }
 )
+
+# 隐藏 Streamlit 默认 UI 组件（Deploy 按钮、菜单栏、footer 等）
+st.markdown("""
+<style>
+    /* 隐藏 Deploy 按钮 */
+    [data-testid="deploy-button"] {visibility: hidden;}
+    /* 隐藏主菜单栏 */
+    #MainMenu {visibility: hidden;}
+    /* 隐藏 footer */
+    footer {visibility: hidden;}
+    /* 隐藏 header 中的装饰线 */
+    header {visibility: hidden;}
+    /* 隐藏 help 按钮 */
+    [data-testid="help-button"] {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True)
 
 # 页面重新加载计数
 def test_update_reload_count():
@@ -49,6 +72,10 @@ def test_update_reload_count():
 
 test_update_reload_count()
 
+# ============ 登录认证检查 ============
+if not check_auth():
+    render_login_page()
+    st.stop()
 
 # # 页面刷新加载计数 使用 URL 参数来持久化计数器（解决刷新页面重置的问题）
 # def update_refresh_count():
@@ -316,6 +343,9 @@ def main():
 
     # 侧边栏
     with st.sidebar:
+        # 登录状态 & 登出
+        render_user_info()
+
         # 快捷导航 - 移到顶部
         st.markdown("### 🔍 功能导航")
 
